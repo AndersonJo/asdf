@@ -1,0 +1,7 @@
+# Project
+.idea
+venv
+
+# Python 
+*.pyc
+
