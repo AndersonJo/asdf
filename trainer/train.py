@@ -13,6 +13,7 @@ def parse_args(args):
     parser.add_argument('data')
     parser.add_argument('--data-path', default='/data/VOCdevkit/VOC2012/')
     parser.add_argument('--backbone', default='resnet50', type=str, help='Backbone model (resnet50)')
+    parser.add_argument('--freeze-backbone', action='store_true', help='Freeze backbone layers when training')
 
     parser.add_argument('--gpu', type=str, help='GPU ID to use')
     return parser.parse_args(args)
