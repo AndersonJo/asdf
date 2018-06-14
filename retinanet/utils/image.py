@@ -16,7 +16,7 @@ def image_load(path: str, rgb=False) -> np.ndarray:
         return image[:, :, ::-1].copy()
 
 
-def normalize_image(image: np.ndarray, flip_ch=False):
+def normalize_image(image: np.ndarray):
     """
     Refers to https://github.com/keras-team/keras/blob/master/keras/applications/imagenet_utils.py
     image: BGR image
@@ -24,9 +24,6 @@ def normalize_image(image: np.ndarray, flip_ch=False):
     x = image.astype(K.floatx())
     data_format = K.image_data_format()
     mean = (103.939, 116.779, 123.68)
-
-    if flip_ch:
-        x = flip_channel(x)
 
     if data_format == 'channels_first':
         if x.ndim == 3:
@@ -44,7 +41,7 @@ def normalize_image(image: np.ndarray, flip_ch=False):
     return x
 
 
-def denormalize_image(image: np.ndarray, flip_ch=False):
+def denormalize_image(image: np.ndarray):
     x = image.astype(K.floatx())
     data_format = K.image_data_format()
     mean = (103.939, 116.779, 123.68)
@@ -63,8 +60,6 @@ def denormalize_image(image: np.ndarray, flip_ch=False):
         x[..., 1] += mean[1]
         x[..., 2] += mean[2]
 
-    if flip_ch:
-        x = flip_channel(x)
     return x
 
 

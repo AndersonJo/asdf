@@ -1,7 +1,7 @@
 import keras
 from PIL import Image
 
-from retinanet.utils.image import image_load, normalize_image, denormalize_image
+from retinanet.utils.image import image_load, normalize_image, denormalize_image, flip_channel
 import os
 
 from tests import DATASET_ROOT_PATH
@@ -50,6 +50,8 @@ class TestImageTransform(object):
 
         # Test3 BGR -> flip to RGB -> normalize -> denormalize -> flip to BGR -> BGR
         image = image_load(image_path, rgb=False)
-        normalized_image = normalize_image(image, flip_ch=True)
-        denormalized_image = denormalize_image(normalized_image, flip_ch=True)
-        np.testing.assert_equal(image, denormalized_image)
+        flipped_image = flip_channel(image)
+        normalized_image = normalize_image(flipped_image)
+        denormalized_image = denormalize_image(normalized_image)
+        flipped_image = flip_channel(denormalized_image)
+        np.testing.assert_equal(image, flipped_image)
