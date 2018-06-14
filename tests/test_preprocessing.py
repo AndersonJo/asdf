@@ -53,3 +53,22 @@ class TestBoundingBoxGenerator(object):
         image_batch, box_batch = generator.filter_bounding_box(original_image_batch, box_batch)
         np.testing.assert_equal(expected_box_batch, box_batch)
         np.testing.assert_equal(original_image_batch, image_batch)
+
+
+class TestTransformImage(object):
+    def test_transform_mxmy(self):
+        x1, y1, x2, y2 = (5, 10, 50, 40)
+        transform = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+
+        points = transform.dot([
+            [x1, x2, x1, x2],
+            [y1, y2, y2, y1],
+            [1, 1, 1, 1],
+        ])
+
+        min_corner = points.min(axis=1)
+        max_corner = points.max(axis=1)
+
+        print(points)
+        print(min_corner)
+        print(max_corner)

@@ -1,3 +1,4 @@
+import warnings
 from abc import ABC, abstractmethod
 from typing import List, Union, Tuple
 
@@ -57,6 +58,8 @@ class BoundingBoxGenerator(BaseGenerator):
                 (boxes[:, 3] > image.shape[0])
             )[0]
 
-            filtered_boxes = np.delete(boxes, invalid_indices, axis=0)
-            box_batch[i] = filtered_boxes
+            if len(invalid_indices):
+                filtered_boxes = np.delete(boxes, invalid_indices, axis=0)
+                box_batch[i] = filtered_boxes
+
         return image_batch, box_batch
