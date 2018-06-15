@@ -1,9 +1,11 @@
-import warnings
-from abc import ABC, abstractmethod
-from typing import List, Union, Tuple
+from abc import ABC
+from typing import List, Tuple
 
 import numpy as np
 from keras.utils import Sequence
+
+from retinanet.preprocessing.transform import RandomTransformGenerator
+from retinanet.utils.image import normalize_image
 
 
 class BaseGenerator(Sequence, ABC):
@@ -13,10 +15,6 @@ class BaseGenerator(Sequence, ABC):
         self.shuffle = shuffle
         self._data = list()
         self.filters = list()
-
-    @abstractmethod
-    def load_data(self, *args, **kwargs):
-        raise NotImplementedError('load_data method not implemented')
 
     def __getitem__(self, index):
         batch = self._data[index * self.batch_size: (index + 1) * self.batch_size]
@@ -33,17 +31,53 @@ class BaseGenerator(Sequence, ABC):
             pass
 
 
-class BoundingBoxGenerator(BaseGenerator):
+class ImageGenerator(BaseGenerator):
 
-    def __init__(self, batch: int = 1, shuffle: bool = True):
-        super(BoundingBoxGenerator, self).__init__(batch=batch, shuffle=shuffle)
+    def __init__(self, batch: int = 1, shuffle: bool = True,
+                 random_generator: RandomTransformGenerator = None):
+        super(ImageGenerator, self).__init__(batch=batch, shuffle=shuffle)
+        self.random_generator = random_generator
 
     def __getitem__(self, index):
-        batch = super(BoundingBoxGenerator, self).__getitem__(index)
-        self.filter_bounding_box(batch)
+        batch = super(ImageGenerator, self).__getitem__(index)
+        box_batch = self.load_box_batch(batch)
+        image_batch = self.load_image_batch(batch)
 
-    def load_data(self, data: List[np.ndarray]):
-        self._data = data
+        # Filter invalid bounding boxes
+        image_batch, box_batch = self.filter_bounding_box(image_batch, box_batch)
+
+        # Perform image pre-processing
+        self.preprocess_batch(image_batch, box_batch)
+
+        return batch
+
+    def load_image(self, image_index):
+        raise NotImplementedError('load_image method not implemented')
+
+    def load_box(self, box_index):
+        raise NotImplementedError('load_box method not implemented')
+
+    def load_image_batch(self, batch):
+        return [self.load_image(image_index) for image_index in batch]
+
+    def load_box_batch(self, batch):
+        return [self.load_box(box_index) for box_index in batch]
+
+    def preprocess_batch(self, image_batch, box_batch):
+        for i, (image, boxes) in enumerate(zip(image_batch, box_batch)):
+            # pre-process image
+            image = self.preprocess_image(image)
+
+            # Get translation
+            image, boxes = self.perform_translation(image, boxes)
+            # TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+    def preprocess_image(self, image) -> np.ndarray:
+        return normalize_image(image)
+
+    def perform_translation(self, image, boxes):
+        translation_matrix = next(self.random_generator)
+        # TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     @staticmethod
     def filter_bounding_box(image_batch: List[np.ndarray], box_batch: List[np.ndarray]) -> Tuple[

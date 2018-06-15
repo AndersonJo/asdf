@@ -1,12 +1,9 @@
-import keras
-from PIL import Image
-
-from retinanet.utils.image import image_load, normalize_image, denormalize_image, flip_channel
 import os
 
-from tests import DATASET_ROOT_PATH
 import numpy as np
-from scipy.misc import imsave
+
+from retinanet.utils.image import image_load, normalize_image, denormalize_image, flip_channel
+from tests import DATASET_ROOT_PATH
 
 
 class TestImageTransform(object):
