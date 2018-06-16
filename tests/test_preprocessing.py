@@ -1,7 +1,9 @@
 import numpy as np
 
 from retinanet.preprocessing.base import ImageGenerator
+from retinanet.preprocessing.pascal import PascalVOCGenerator
 from retinanet.preprocessing.transform import RandomTransformGenerator
+from tests import DATASET_ROOT_PATH
 
 
 class TestBoundingBoxGenerator(object):
@@ -22,7 +24,7 @@ class TestBoundingBoxGenerator(object):
             [5, 0, 25, 30],
         ])]
 
-        filter_bounding_box = ImageGenerator.filter_bounding_box
+        filter_bounding_box = ImageGenerator.filter_invalid_bounding_box_batch
 
         image_batch, box_batch = filter_bounding_box(original_image_batch, box_batch)
         np.testing.assert_equal(expected_box_batch, box_batch)
@@ -82,19 +84,10 @@ class TestTransformImage(object):
         output = next(rand).astype(np.float16)
         np.testing.assert_equal(expected_matrix, output)
 
-    def test_transform_mxmy(self):
-        x1, y1, x2, y2 = (5, 10, 50, 40)
-        transform = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
 
-        points = transform.dot([
-            [x1, x2, x1, x2],
-            [y1, y2, y2, y1],
-            [1, 1, 1, 1],
-        ])
+class TestVOCGenerator(object):
+    def test_voc_generator(self):
+        voc = PascalVOCGenerator('/data/VOCdevkit', batch=3)
 
-        min_corner = points.min(axis=1)
-        max_corner = points.max(axis=1)
+        print(voc[0])
 
-        print(points)
-        print(min_corner)
-        print(max_corner)

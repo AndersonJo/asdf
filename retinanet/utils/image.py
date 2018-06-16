@@ -4,7 +4,7 @@ import numpy as np
 import keras.backend as K
 
 
-def image_load(path: str, rgb=False) -> np.ndarray:
+def load_image(path: str, rgb=False) -> np.ndarray:
     """
     Load image.
     BGR is default

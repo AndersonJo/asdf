@@ -4,7 +4,9 @@ The code refers to
 
 from typing import List, Tuple
 
+import cv2
 import numpy as np
+import keras.backend as K
 
 _DEFAULT_RS = np.random.RandomState()
 
@@ -169,3 +171,110 @@ def flip(flip_x_chance, flip_y_chance, rand):
     flip_y = rand.uniform(0, 1) < flip_y_chance
     # 1 - 2 * bool gives 1 for False and -1 for True.
     return scaling_matrix((1 - 2 * flip_x, 1 - 2 * flip_y))
+
+
+def change_origin(transform, center):
+    """
+    Adjust the origin of the transformation matrix by mo
+    :param transform: the transformation matrix
+    :param center: the new origin of the transformation
+    :return: a new transformation matrix with the adjusted origin
+    """
+    center = np.array(center)
+
+    return np.linalg.multi_dot([translation_matrix(center), transform, translation_matrix(-center)])
+
+
+def adjust_transformation_for_image(transform, image, relative_translation):
+    """
+    Adjust the image to translation matrix so as to fit the size of the image to the translation matrix.
+    The origin of the translation matrix will be centered.
+    """
+    height, width, channels = image.shape
+    transform = transform.copy()
+
+    # Scale the translation with the image size if specified.
+    if relative_translation:
+        transform[0:2, 2] *= [width, height]
+
+    # Move the origin of transformation.
+    new_transformation = change_origin(transform, (0.5 * width, 0.5 * height))
+
+    return new_transformation
+
+
+def warp_affine(matrix: np.ndarray,
+                image: np.ndarray,
+                interpolation: int = cv2.INTER_LINEAR,
+                border_mode: int = cv2.BORDER_REPLICATE,
+                border_value: int = 0,
+                channel_axis: int = 2) -> np.ndarray:
+    """
+    Apply the transformation matrix to the image
+
+    :param matrix: a 3 x 3 homogeneous transformation matrix
+    :param image: The image to apply transformation matrix
+    :param interpolation: cv2 interpolation value (example cv2.INTER_??)
+    :param border_value: cv2 border value
+    :param border_mode: cv2 border mode (example cv2.BORDER_??)
+    :param channel_axis: channel location in axis
+    """
+
+    if channel_axis != 2:
+        image = np.moveaxis(image, channel_axis, 2)
+
+    transformed_image = cv2.warpAffine(
+        image,
+        matrix[:2, :],
+        dsize=(image.shape[1], image.shape[0]),
+        flags=interpolation,
+        borderMode=border_mode,
+        borderValue=border_value,
+    )
+
+    if channel_axis != 2:
+        transformed_image = np.moveaxis(transformed_image, 2, channel_axis)
+
+    return transformed_image
+
+
+def transform_bounding_box(transform: np.ndarray, mxmy: np.ndarray):
+    """
+    Transform the transformation matrix to an axis aligned bounding box
+    :param transform: the transformation matrix to apply
+    :param mxmy: (min_x, min_y, max_x, max_y)
+    :return: a newly transformed mxmy vector (min_x, min_y, max_x, max_y)
+    """
+    x1, y1, x2, y2 = mxmy
+    # Transform all 4 corners of the AABB.
+    points = transform.dot([
+        [x1, x2, x1, x2],
+        [y1, y2, y2, y1],
+        [1, 1, 1, 1],
+    ])
+
+    # Extract the min and max corners again.
+    min_corner = points.min(axis=1)
+    max_corner = points.max(axis=1)
+
+    return [min_corner[0], min_corner[1], max_corner[0], max_corner[1]]
+
+
+def rescale_image(image: np.ndarray, min_side: int = 800, max_side: int = 1333) -> Tuple[np.ndarray, float]:
+    (height, width, _) = image.shape
+
+    smallest_side = min(height, width)
+    largest_side = max(height, width)
+
+    # Calculate scaling ratio such that the smallest side is the min_side
+    scale_ratio = min_side / smallest_side
+
+    # check if the largest side is now greater than max_side, which can happen
+    # when images have a large aspect ratio
+    if largest_side * scale_ratio > max_side:
+        scale_ratio = max_side / largest_side
+
+    # resize the image with the computed scale
+    image = cv2.resize(image, None, fx=scale_ratio, fy=scale_ratio)
+
+    return image, scale_ratio

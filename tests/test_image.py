@@ -2,7 +2,7 @@ import os
 
 import numpy as np
 
-from retinanet.utils.image import image_load, normalize_image, denormalize_image, flip_channel
+from retinanet.utils.image import load_image, normalize_image, denormalize_image, flip_channel
 from tests import DATASET_ROOT_PATH
 
 
@@ -13,7 +13,7 @@ class TestImageTransform(object):
         """
 
         image_path = os.path.join(DATASET_ROOT_PATH, 'VOC2007', 'JPEGImages', '000001.jpg')
-        image = image_load(image_path, rgb=True)
+        image = load_image(image_path, rgb=True)
         np.testing.assert_equal((500, 353, 3), image.shape)
 
         # Move channel to the first
@@ -34,19 +34,19 @@ class TestImageTransform(object):
         image_path = os.path.join(DATASET_ROOT_PATH, 'VOC2007', 'JPEGImages', '000001.jpg')
 
         # Test1 RGB Image to normalize
-        image = image_load(image_path, rgb=True)
+        image = load_image(image_path, rgb=True)
         normalized_image = normalize_image(image)
         denormalized_image = denormalize_image(normalized_image)
         np.testing.assert_equal(image, denormalized_image)
 
         # Test2 BGR Image
-        image = image_load(image_path, rgb=False)
+        image = load_image(image_path, rgb=False)
         normalized_image = normalize_image(image)
         denormalized_image = denormalize_image(normalized_image)
         np.testing.assert_equal(image, denormalized_image)
 
         # Test3 BGR -> flip to RGB -> normalize -> denormalize -> flip to BGR -> BGR
-        image = image_load(image_path, rgb=False)
+        image = load_image(image_path, rgb=False)
         flipped_image = flip_channel(image)
         normalized_image = normalize_image(flipped_image)
         denormalized_image = denormalize_image(normalized_image)
