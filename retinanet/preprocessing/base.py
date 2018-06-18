@@ -8,6 +8,7 @@ from keras.utils import Sequence
 
 from retinanet.preprocessing.transform import RandomTransformGenerator, adjust_transformation_for_image, warp_affine, \
     transform_bounding_box, rescale_image
+from retinanet.training.anchor import anchor_targets_bbox, bbox_transform
 from retinanet.utils.image import normalize_image
 
 
@@ -87,6 +88,17 @@ class ImageGenerator(BaseGenerator):
         self.image_max_size = image_max_size
 
     def __getitem__(self, index):
+        image_batch, box_batch = self.get_batch(index)
+
+        # Combine a list of images into a single nd-array of images
+        inputs = self.process_inputs(image_batch)
+
+        # TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        targets = self.process_targets(image_batch, box_batch)
+
+        return inputs, targets
+
+    def get_batch(self, index: int) -> Tuple[list, list]:
         batch = super(ImageGenerator, self).__getitem__(index)
         box_batch = self.load_annotation_batch(batch)
         image_batch = self.load_image_batch(batch)
@@ -96,14 +108,10 @@ class ImageGenerator(BaseGenerator):
 
         # Perform image pre-processing
         image_batch, box_batch = self.preprocess_batch(image_batch, box_batch)
-
-        # Combine a list of images into a single nd-array of images
-        image_batch = self.to_single_image_batch(image_batch)
-
-        # TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        compute_targets
-
         return image_batch, box_batch
+
+    def count_class(self) -> int:
+        raise NotImplementedError('count_class method not implemented')
 
     def name_to_label(self, name):
         raise NotImplementedError('name_to_label method not implemented')
@@ -162,7 +170,7 @@ class ImageGenerator(BaseGenerator):
     def resize_image(self, image: np.ndarray) -> Tuple[np.ndarray, float]:
         return rescale_image(image, self.image_min_size, self.image_max_size)
 
-    def to_single_image_batch(self, images: List[np.ndarray]):
+    def process_inputs(self, images: List[np.ndarray]):
         # get the max image shape
         max_shape = tuple(max(image.shape[x] for image in images) for x in range(3))
 
@@ -174,6 +182,33 @@ class ImageGenerator(BaseGenerator):
             image_batch[image_index, :image.shape[0], :image.shape[1], :image.shape[2]] = image
 
         return image_batch
+
+    def process_targets(self, image_batch, box_batch):
+        # get the max image shape
+        max_shape = tuple(max(image.shape[x] for image in image_batch) for x in range(3))
+
+        # compute labels and regression targets
+        labels_group = [None] * self.batch_size
+        regression_group = [None] * self.batch_size
+        for index, (image, boxes) in enumerate(zip(image_batch, box_batch)):
+            labels_group[index], boxes, anchors = anchor_targets_bbox(max_shape, boxes, 20,  # self.count_class(),
+                                                                      mask_shape=image.shape)
+
+            regression_group[index] = bbox_transform(anchors, boxes)
+
+            # append anchor states to regression targets (necessary for filtering 'ignore', 'positive' and 'negative' anchors)
+            anchor_states = np.max(labels_group[index], axis=1, keepdims=True)
+            regression_group[index] = np.append(regression_group[index], anchor_states, axis=1)
+
+        labels_batch = np.zeros((self.batch_size,) + labels_group[0].shape, dtype=K.floatx())
+        regression_batch = np.zeros((self.batch_size,) + regression_group[0].shape, dtype=K.floatx())
+
+        # copy all labels and regression values to the batch blob
+        for index, (labels, regression) in enumerate(zip(labels_group, regression_group)):
+            labels_batch[index, ...] = labels
+            regression_batch[index, ...] = regression
+
+        return [regression_batch, labels_batch]
 
     @staticmethod
     def filter_invalid_bounding_box_batch(image_batch: List[np.ndarray], box_batch: List[np.ndarray]) -> Tuple[

@@ -1,5 +1,3 @@
-from keras import Model
-
 from retinanet.backbone.base import BackboneBase
 from retinanet.backbone.resnet import ResNet50Backbone, ResNet101Backbone, ResNet152Backbone
 
