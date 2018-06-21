@@ -85,9 +85,3 @@ class TestTransformImage(object):
         np.testing.assert_equal(expected_matrix, output)
 
 
-class TestVOCGenerator(object):
-    def test_voc_generator(self):
-        voc = PascalVOCGenerator('/data/VOCdevkit', batch=3)
-
-        print(voc[0])
-

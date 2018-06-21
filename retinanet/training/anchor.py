@@ -37,8 +37,7 @@ def anchor_targets_bbox(
         mask_shape=None,
         negative_overlap=0.4,
         positive_overlap=0.5,
-        **kwargs
-):
+        **kwargs):
     anchors = anchors_for_shape(image_shape, **kwargs)
 
     # label: 1 is positive, 0 is negative, -1 is dont care
@@ -124,13 +123,20 @@ def anchors_for_shape(
         scales=None,
         strides=None,
         sizes=None,
-        shapes_callback=None,
-):
+        shapes_callback=None):
+    """
+    Generate all anchors for each pyramid levels.
+    Each pyramid level has all anchors
+    :param image_shape: (height, width)
+    :return: All anchors for all pyramid levels
+    """
     if pyramid_levels is None:
         pyramid_levels = [3, 4, 5, 6, 7]
     if strides is None:
         strides = [2 ** x for x in pyramid_levels]
     if sizes is None:
+        # FPN uses single scales { 32^2, 64^2, 128^2, 256^2, 512^2 }
+        # sizes = [32, 64, 128, 256, 512]
         sizes = [2 ** (x + 2) for x in pyramid_levels]
     if ratios is None:
         ratios = np.array([0.5, 1, 2])
@@ -152,15 +158,22 @@ def anchors_for_shape(
 
 
 def shift(shape, stride, anchors):
+    """
+    Generate anchors for an image.
+    :param shape: (height, width)
+    :param stride: stride value
+    :param anchors: anchors (x1, y1, x2, y2)
+    :return: all anchors (x1, y1, x2, y2) for an image.
+    """
     shift_x = (np.arange(0, shape[1]) + 0.5) * stride
     shift_y = (np.arange(0, shape[0]) + 0.5) * stride
 
     shift_x, shift_y = np.meshgrid(shift_x, shift_y)
 
-    shifts = np.vstack((
-        shift_x.ravel(), shift_y.ravel(),
-        shift_x.ravel(), shift_y.ravel()
-    )).transpose()
+    # shifts are (None, 4) matrix.
+    # each vector has (x, y, x, y) location of the image
+    # (ex. shifts.shape = (7500, 4))
+    shifts = np.vstack((shift_x.ravel(), shift_y.ravel(), shift_x.ravel(), shift_y.ravel())).transpose()
 
     # add A anchors (1, A, 4) to
     # cell K shifts (K, 1, 4) to get
@@ -174,12 +187,11 @@ def shift(shape, stride, anchors):
     return all_anchors
 
 
-def generate_anchors(base_size=16, ratios=None, scales=None):
+def generate_anchors(base_size: int = 16, ratios: np.ndarray = None, scales: np.ndarray = None):
     """
-    Generate anchor (reference) windows by enumerating aspect ratios X
-    scales w.r.t. a reference window.
+    Generate anchors; the center of the anchor is (0, 0)
+    :return: anchors (x1, y1, x2, y2) ; the center point is (0, 0)
     """
-
     if ratios is None:
         ratios = np.array([0.5, 1, 2])
 
@@ -188,20 +200,31 @@ def generate_anchors(base_size=16, ratios=None, scales=None):
 
     num_anchors = len(ratios) * len(scales)
 
-    # initialize output anchors
+    # Initialize zero matrix
     anchors = np.zeros((num_anchors, 4))
 
-    # scale base_size
+    # scale base_size (0, 0, width, height)
     anchors[:, 2:] = base_size * np.tile(scales, (2, len(ratios))).T
 
     # compute areas of anchors
+    # it is like creating multi-scale square boxes and calculate the area of the square boxes
+    # 32 x 32, 38.4 x 38.4, 48 x 48 ... repeat
+    # areas = [1024, 1474.56, 2304,
+    #          1024, 1474.56, 2304,
+    #          1024, 1474.56, 2304]
     areas = anchors[:, 2] * anchors[:, 3]
 
-    # correct for ratios
+    # sqrt(Area / ratio) = the width of square box
+    # (ex. 32 x 32 = 1024 -> sqrt(1024 / 1) = 32)
+    # height = width * ratio
     anchors[:, 2] = np.sqrt(areas / np.repeat(ratios, len(scales)))
     anchors[:, 3] = anchors[:, 2] * np.repeat(ratios, len(scales))
 
     # transform from (x_ctr, y_ctr, w, h) -> (x1, y1, x2, y2)
+    # x2 = width - width/2
+    # y2 = height - height/2
+    # x1 = 0 - width/2
+    # y1 = 0 - height/2
     anchors[:, 0::2] -= np.tile(anchors[:, 2] * 0.5, (2, 1)).T
     anchors[:, 1::2] -= np.tile(anchors[:, 3] * 0.5, (2, 1)).T
 

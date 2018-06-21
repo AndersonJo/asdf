@@ -8,7 +8,7 @@ from keras.utils import Sequence
 
 from retinanet.preprocessing.transform import RandomTransformGenerator, adjust_transformation_for_image, warp_affine, \
     transform_bounding_box, rescale_image
-from retinanet.training.anchor import anchor_targets_bbox, bbox_transform
+from retinanet.training.anchor import anchor_targets_bbox, bbox_transform, generate_targets
 from retinanet.utils.image import normalize_image
 
 
@@ -184,31 +184,7 @@ class ImageGenerator(BaseGenerator):
         return image_batch
 
     def process_targets(self, image_batch, box_batch):
-        # get the max image shape
-        max_shape = tuple(max(image.shape[x] for image in image_batch) for x in range(3))
-
-        # compute labels and regression targets
-        labels_group = [None] * self.batch_size
-        regression_group = [None] * self.batch_size
-        for index, (image, boxes) in enumerate(zip(image_batch, box_batch)):
-            labels_group[index], boxes, anchors = anchor_targets_bbox(max_shape, boxes, 20,  # self.count_class(),
-                                                                      mask_shape=image.shape)
-
-            regression_group[index] = bbox_transform(anchors, boxes)
-
-            # append anchor states to regression targets (necessary for filtering 'ignore', 'positive' and 'negative' anchors)
-            anchor_states = np.max(labels_group[index], axis=1, keepdims=True)
-            regression_group[index] = np.append(regression_group[index], anchor_states, axis=1)
-
-        labels_batch = np.zeros((self.batch_size,) + labels_group[0].shape, dtype=K.floatx())
-        regression_batch = np.zeros((self.batch_size,) + regression_group[0].shape, dtype=K.floatx())
-
-        # copy all labels and regression values to the batch blob
-        for index, (labels, regression) in enumerate(zip(labels_group, regression_group)):
-            labels_batch[index, ...] = labels
-            regression_batch[index, ...] = regression
-
-        return [regression_batch, labels_batch]
+        return generate_targets(image_batch, box_batch, batch_size=self.batch_size)
 
     @staticmethod
     def filter_invalid_bounding_box_batch(image_batch: List[np.ndarray], box_batch: List[np.ndarray]) -> Tuple[

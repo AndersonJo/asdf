@@ -134,7 +134,7 @@ class PascalVOCGenerator(ImageGenerator):
 
         try:
             tree = ET.parse(annotation_path)
-            boxes = self.__parse_annotations(tree.getroot())
+            boxes = self.__parse_bounding_boxes(tree.getroot())
             if not len(boxes):
                 return None
             return boxes
@@ -159,7 +159,7 @@ class PascalVOCGenerator(ImageGenerator):
         box[0, 3] = _find_node(bndbox, 'ymax', 'bndbox.ymax', parse=float) - 1
         return box
 
-    def __parse_annotations(self, xml_root):
+    def __parse_bounding_boxes(self, xml_root):
         size_node = _find_node(xml_root, 'size')
         # width = _find_node(size_node, 'width', 'size.width', parse=float)
         # height = _find_node(size_node, 'height', 'size.height', parse=float)

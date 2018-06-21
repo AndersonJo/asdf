@@ -14,7 +14,7 @@ from retinanet.backbone import load_backbone
 def parse_args(args):
     parser = argparse.ArgumentParser(description='Retinanet training script')
     parser.add_argument('data_mode')
-    parser.add_argument('--data-path', default='/data/VOCdevkit/VOC2012/')
+    parser.add_argument('data-path', default='/data/VOCdevkit/VOC2012/')
     parser.add_argument('--backbone', default='resnet50', type=str, help='Backbone model (resnet50)')
     parser.add_argument('--freeze-backbone', action='store_true', help='Freeze backbone layers when training')
     parser.add_argument('--batch', default=1, type=int, help='Batch size')
