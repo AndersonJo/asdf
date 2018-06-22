@@ -1,25 +1,32 @@
-import argparse
 import os
 import sys
 
 # Enable relative import
 sys.path.insert(0, os.path.abspath(os.path.join(__file__, '..', '..')))
 
+import argparse
+import numpy as np
 import keras.backend as K
 import tensorflow as tf
 
 from retinanet.backbone import load_backbone
+from retinanet.preprocessing.pascal import PascalVOCGenerator
+from retinanet.preprocessing.transform import RandomTransformGenerator
 
 
 def parse_args(args):
     parser = argparse.ArgumentParser(description='Retinanet training script')
     parser.add_argument('data_mode')
-    parser.add_argument('data-path', default='/data/VOCdevkit/VOC2012/')
+    parser.add_argument('data_path', default='/data/VOCdevkit/')
     parser.add_argument('--backbone', default='resnet50', type=str, help='Backbone model (resnet50)')
     parser.add_argument('--freeze-backbone', action='store_true', help='Freeze backbone layers when training')
     parser.add_argument('--batch', default=1, type=int, help='Batch size')
 
     parser.add_argument('--gpu', type=str, help='GPU ID to use')
+    parser.add_argument('--random-transform', help='Randomly transform image and boxes', action='store_true')
+
+    # Model
+    parser.add_argument('--checkpoint', type=str, help='Start training from the checkpoint')
     return parser.parse_args(args)
 
 
@@ -41,6 +48,37 @@ def set_session(sess=None) -> tf.Session:
     return sess
 
 
+def create_data_generator(parser: argparse.ArgumentParser):
+    mode = parser.data_mode.lower().strip()
+    data_path = parser.data_path.strip()
+
+    if parser.random_transform:
+        random_generator = RandomTransformGenerator(
+            min_rotation=-0.1,
+            max_rotation=0.1,
+            min_translation=(-0.1, -0.1),
+            max_translation=(0.1, 0.1),
+            min_shear=-0.1,
+            max_shear=0.1,
+            min_scaling=(0.9, 0.9),
+            max_scaling=(1.1, 1.1),
+            flip_x=0.5,
+            flip_y=0.5,
+            seed=123)
+    else:
+        random_generator = RandomTransformGenerator(
+            flip_x=0.5,
+            flip_y=0.5,
+            seed=123)
+
+    if mode == 'pascal':
+        train_generator = PascalVOCGenerator(data_path, voc_mode='train', random_generator=random_generator)
+        test_generator = PascalVOCGenerator(data_path, voc_mode='test', random_generator=random_generator)
+    else:
+        raise ValueError('Invalid data generator {0} received'.format(mode))
+    return train_generator, test_generator
+
+
 def train():
     parser = parse_args(sys.argv[1:])
 
@@ -53,6 +91,12 @@ def train():
 
     # Load Backbone
     backbone = load_backbone(parser.backbone)
+
+    # Checkpoint
+    # if parser.checkpoint:
+
+    # Create Generator
+    train_generator, test_generator = create_data_generator(parser)
 
 
 if __name__ == '__main__':

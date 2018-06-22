@@ -1,6 +1,8 @@
-from retinanet.preprocessing.pascal import PascalVOCGenerator
-from retinanet.training.anchor import generate_targets, generate_anchors, shift, anchors_for_shape
 import numpy as np
+
+from retinanet.preprocessing.pascal import PascalVOCGenerator, VOC_CLASSES
+from retinanet.training.anchor import generate_anchors, anchor_targets_bbox, \
+    compute_overlap
 
 
 def test_generate_anchor():
@@ -21,5 +23,35 @@ def test_generate_anchor():
     np.testing.assert_equal(expected_anchors, anchors.astype(np.float16))
 
 
-def test_anchors_for_shape():
-    anchors_for_shape([600, 800])
+def test_compute_overlap():
+    # Test 1 : Overlaps
+    anchors = np.array([[5, 3, 10, 10],
+                        [0, 0, 5, 5],
+                        [20, 20, 100, 100],
+                        [100, 100, 200, 200]])
+    gta = np.array([[5, 3, 10, 10],
+                    [0, 0, 5, 5],
+                    [20, 20, 50, 50]])
+
+    expected_overlaps = [[1.0, 0.0, 0.0],
+                         [0.0, 1.0, 0.0],
+                         [0.0, 0.0, 0.140625],
+                         [0.0, 0.0, 0.0]]
+
+    overlaps = compute_overlap(anchors, gta)
+    np.testing.assert_equal(expected_overlaps, overlaps)
+
+    # Test 2 : Max overlaps
+    argmax_overlaps_inds = np.argmax(overlaps, axis=1)
+    max_overlaps = overlaps[np.arange(overlaps.shape[0]), argmax_overlaps_inds]
+
+    expected_max_overlaps = [1.0, 1.0, 0.140625, 0.0]
+    np.testing.assert_equal(expected_max_overlaps, max_overlaps)
+
+# def test_generate_targets():
+#     voc = PascalVOCGenerator()
+#     image_batch, box_batch = voc.get_batch(1)
+#
+#     image_shape = image_batch[0].shape[1:3]
+#     n_classes = len(VOC_CLASSES)
+#     labels, boxes, anchors = anchor_targets_bbox(image_shape, box_batch[0], num_classes=n_classes)

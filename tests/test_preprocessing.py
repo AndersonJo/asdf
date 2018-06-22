@@ -1,9 +1,7 @@
 import numpy as np
 
 from retinanet.preprocessing.base import ImageGenerator
-from retinanet.preprocessing.pascal import PascalVOCGenerator
 from retinanet.preprocessing.transform import RandomTransformGenerator
-from tests import DATASET_ROOT_PATH
 
 
 class TestBoundingBoxGenerator(object):
@@ -83,5 +81,3 @@ class TestTransformImage(object):
 
         output = next(rand).astype(np.float16)
         np.testing.assert_equal(expected_matrix, output)
-
-
