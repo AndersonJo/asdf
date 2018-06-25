@@ -5,11 +5,10 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(__file__, '..', '..')))
 
 import argparse
-import numpy as np
 import keras.backend as K
 import tensorflow as tf
 
-from retinanet.backbone import load_backbone
+from retinanet.retina.model import RetinaNet
 from retinanet.preprocessing.pascal import PascalVOCGenerator
 from retinanet.preprocessing.transform import RandomTransformGenerator
 
@@ -18,7 +17,7 @@ def parse_args(args):
     parser = argparse.ArgumentParser(description='Retinanet training script')
     parser.add_argument('data_mode')
     parser.add_argument('data_path', default='/data/VOCdevkit/')
-    parser.add_argument('--backbone', default='resnet50', type=str, help='Backbone model (resnet50)')
+    parser.add_argument('--backbone', default='resnet101', type=str, help='Backbone model (resnet50)')
     parser.add_argument('--freeze-backbone', action='store_true', help='Freeze backbone layers when training')
     parser.add_argument('--batch', default=1, type=int, help='Batch size')
 
@@ -89,11 +88,8 @@ def train():
     # Set Session
     set_session()
 
-    # Load Backbone
-    backbone = load_backbone(parser.backbone)
-
-    # Checkpoint
-    # if parser.checkpoint:
+    # Create RetinaNet
+    retinanet = RetinaNet(parser.backbone)
 
     # Create Generator
     train_generator, test_generator = create_data_generator(parser)

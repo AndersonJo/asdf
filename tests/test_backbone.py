@@ -45,7 +45,7 @@ def test_resnet_backbone():
     backbones = ['resnet50', 'resnet101', 'resnet152']
 
     for name in backbones:
-        backbone = load_backbone(name, freeze=True)
+        backbone = load_backbone(name)
         weights = backbone.download_imagenet()
-        model = backbone.create_backbone()
+        model = backbone.create_backbone_model()
         model.load_weights(weights, by_name=True, skip_mismatch=False)

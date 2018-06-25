@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from keras import Model
+from keras import Model, Input
 
 
 class BackboneBase(ABC):
@@ -10,7 +10,7 @@ class BackboneBase(ABC):
         self.validate()
 
     @abstractmethod
-    def create_backbone(self):
+    def create_backbone_model(self, inputs: Input = None, freeze: bool = False) -> Model:
         raise NotImplemented('model property not implemented')
 
     @abstractmethod
