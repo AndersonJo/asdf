@@ -1,5 +1,6 @@
 import keras
-from keras import Input, Model
+from keras import Model
+from keras.layers import Input
 
 from retinanet.backbone import load_backbone
 from retinanet.retina.layer import PriorProbability
@@ -14,7 +15,7 @@ class RetinaNet(object):
                  weights: str = None,
                  freeze: bool = False,
 
-                 fpn_size=256,
+                 fpn_feature_size: int = 256,
                  ):
         """
         # Basic Parameters
@@ -28,13 +29,14 @@ class RetinaNet(object):
         :param weights: weights file path. if None, it uses pre-trained ImageNet weights.
 
         # Pyramid Parameters
-        :param fpn_size: the feature size of the pyramid network
+        :param fpn_feature_size: the feature size of the pyramid network
         """
         # Set basic parameters
         self.n_class = n_class
         self.n_anchor = n_anchor
 
         # Set Feature Pyramid Network
+        self.fpn_feature_size = fpn_feature_size
 
         # Set Backbone Network
         self.inputs = Input(shape=(None, None, 3), name='input')
@@ -50,19 +52,67 @@ class RetinaNet(object):
 
             backbone_model = self.backbone.create_backbone_model(self.inputs, freeze=freeze)
             # TODO: Retina + FPN
-            self.create_classification_subnet()
+            # self.create_classification_subnet()
 
             backbone_model.load_weights(weights, by_name=True, skip_mismatch=False)
 
-    def create_regression_subnet(self):
-        pass
+    def create_regression_subnet(self, reg_feature_size: int = 256) -> Model:
+        """
+        :param reg_feature_size: Regression subnet's feature size
+
+        Every layers are the same as the ones in classification sub network except the final one.
+        All layers in subnets are initialized with bias b = 0 and a Guassian weight fill with stddev = 0.01
+        :return: regression subnet model
+        """
+        n_anchor = self.n_anchor
+        fpn_feature_size = self.fpn_feature_size
+
+        def regr_conv1(h, name):
+            return keras.layers.Conv2D(
+                filters=reg_feature_size,
+                kernel_size=3,
+                strides=1,
+                padding='same',
+                activation='relu',
+                kernel_initializer=keras.initializers.normal(mean=0.0, stddev=0.01, seed=None),
+                bias_initializer='zeros',
+                name=name,
+            )(h)
+
+        def regr_conv2(h, name):
+            return keras.layers.Conv2D(
+                filters=n_anchor * 4,
+                kernel_size=3,
+                strides=1,
+                padding='same',
+                kernel_initializer=keras.initializers.normal(mean=0.0, stddev=0.01, seed=None),
+                bias_initializer='zeros',
+                name=name,
+            )(h)
+
+        inputs = Input(shape=(None, None, fpn_feature_size), name='reg_subnet_input')
+        h = regr_conv1(inputs, 'reg_subnet_1')
+        h = regr_conv1(h, 'reg_subnet_2')
+        h = regr_conv1(h, 'reg_subnet_3')
+        h = regr_conv1(h, 'reg_subnet_4')
+        h = regr_conv2(h, 'reg_subnet_5')
+
+        h = keras.layers.Reshape((-1, 4), name='reg_subnet_reshape')(h)
+        h = keras.layers.Activation('linear', name='reg_subnet_linear_activation')(h)
+        return keras.models.Model(inputs=inputs, outputs=h, name='reg_subnet_model')
 
     def create_classification_subnet(self,
-                                     n_class: int,
-                                     n_anchor: int = 9,
                                      clf_feature_size: int = 256,
-                                     prior_prob: float = 0.01,
-                                     name='clf_subnet_model') -> Model:
+                                     prior_prob: float = 0.01) -> Model:
+        """
+        :param clf_feature_size: Classification subnet's feature size
+        :param prior_prob:
+        :param name:
+        :return:
+        """
+        n_class = self.n_class
+        n_anchor = self.n_anchor
+        fpn_feature_size = self.fpn_feature_size
 
         def clf_conv1(h, name):
             return keras.layers.Conv2D(
@@ -86,7 +136,7 @@ class RetinaNet(object):
                 strides=1,
                 padding='same')(h)
 
-        inputs = Input(shape=(None, None, self))
+        inputs = Input(shape=(None, None, fpn_feature_size), name='clf_subnet_input')
 
         h = clf_conv1(inputs, 'clf_subnet_1')
         h = clf_conv1(h, 'clf_subnet_2')
@@ -96,4 +146,4 @@ class RetinaNet(object):
 
         h = keras.layers.Reshape((-1, n_class), name='clf_subnet_reshape')(h)
         h = keras.layers.Activation('sigmoid', name='clf_subnet_sigmoid')(h)
-        return Model(inputs=inputs, outputs=h, name=name)
+        return Model(inputs=inputs, outputs=h, name='clf_subnet_model')

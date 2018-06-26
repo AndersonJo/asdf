@@ -1,5 +1,3 @@
-import math
-
 import keras
 import numpy as np
 
@@ -18,6 +16,4 @@ class PriorProbability(keras.initializers.Initializer):
         }
 
     def __call__(self, shape, dtype=None):
-        result = np.ones(shape, dtype=dtype) * -math.log((1 - self.prior) / self.prior)
-
-        return result
+        return np.ones(shape, dtype=dtype) * -np.log((1 - self.prior) / self.prior)
