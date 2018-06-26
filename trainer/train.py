@@ -8,7 +8,7 @@ import argparse
 import keras.backend as K
 import tensorflow as tf
 
-from retinanet.retina.model import RetinaNet
+from retinanet.retinanet.model import RetinaNet
 from retinanet.preprocessing.pascal import PascalVOCGenerator
 from retinanet.preprocessing.transform import RandomTransformGenerator
 

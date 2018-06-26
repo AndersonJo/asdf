@@ -1,9 +1,11 @@
-from retinanet.retina.model import RetinaNet
+from tensorflow import set_random_seed
+
+from retinanet.retinanet.model import RetinaNet
 import keras.backend as K
 import numpy as np
 
 
-class TestClassificationSubnet(object):
+class TestSubNetwork(object):
     def test_prior_probability(self):
         retinanet = RetinaNet('resnet50', n_class=20, n_anchor=9)
         clf_model = retinanet.create_classification_subnet(20)
@@ -15,11 +17,19 @@ class TestClassificationSubnet(object):
 
     def test_regression_subnet(self):
         np.random.seed(0)
+        set_random_seed(0)
+
         retinanet = RetinaNet('resnet50', n_class=5, n_anchor=9)
         reg_model = retinanet.create_regression_subnet(reg_feature_size=256)
 
         inputs = np.random.rand(1, 32, 32, 256)
         outputs = reg_model.predict(inputs)
 
-        expected_mean = np.array(0.00015666496, dtype=np.float32)
+        expected_mean = np.array(0.000437442, dtype=np.float32)
         np.testing.assert_equal(expected_mean, outputs.mean())
+
+
+class TestRetinaNet(object):
+    def test_create_retinanet(self):
+        retinanet = RetinaNet('resnet50', n_class=10, n_anchor=9)
+        retinanet.create_retinanet()

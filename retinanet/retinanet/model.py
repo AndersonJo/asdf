@@ -3,7 +3,7 @@ from keras import Model
 from keras.layers import Input
 
 from retinanet.backbone import load_backbone
-from retinanet.retina.layer import PriorProbability
+from retinanet.retinanet.layer import PriorProbability
 
 
 class RetinaNet(object):
@@ -11,9 +11,6 @@ class RetinaNet(object):
                  backbone: str,
                  n_class: int,
                  n_anchor: int = 9,
-                 checkpoint: str = None,
-                 weights: str = None,
-                 freeze: bool = False,
 
                  fpn_feature_size: int = 256,
                  ):
@@ -24,37 +21,56 @@ class RetinaNet(object):
 
         # Backbone Parameters
         :param backbone: The name of the backbone Model
-        :param checkpoint: Checkpoint file path. It resume training from the checkpoint.
+
         :param freeze: freeze the weights of the backbone model
         :param weights: weights file path. if None, it uses pre-trained ImageNet weights.
 
         # Pyramid Parameters
         :param fpn_feature_size: the feature size of the pyramid network
         """
-        # Set basic parameters
+        # Initialize basic parameters
         self.n_class = n_class
         self.n_anchor = n_anchor
 
-        # Set Feature Pyramid Network
+        # Initialize Feature Pyramid Network
         self.fpn_feature_size = fpn_feature_size
 
-        # Set Backbone Network
+        # Initialize Backbone Network
         self.inputs = Input(shape=(None, None, 3), name='input')
         self.backbone = load_backbone(backbone)
 
+        # Initialize RetinaNet
+        self._retinanet = None
+
         # Load snapshot to resume training from the snapshot
-        if checkpoint is not None:
-            model = keras.models.load_model(checkpoint, custom_objects=self.backbone.custom_objects)
-        else:
-            # Default weights are pre-trained ImageNet weights
-            if weights is None:
-                weights = self.backbone.download_imagenet()
+        # if checkpoint is not None:
+        #     model = keras.models.load_model(checkpoint, custom_objects=self.backbone.custom_objects)
+        # else:
+        #     self.create_retinanet()
 
-            backbone_model = self.backbone.create_backbone_model(self.inputs, freeze=freeze)
-            # TODO: Retina + FPN
-            # self.create_classification_subnet()
+    @property
+    def model(self) -> Model:
+        return self._retinanet
 
-            backbone_model.load_weights(weights, by_name=True, skip_mismatch=False)
+    def create_retinanet(self,
+                         # Backbone
+                         freeze_backbone: bool = False,
+                         weights: str = None,
+
+                         # Sub Networks
+                         clf_feature_size: int = 256,
+                         reg_feature_size: int = 256,
+                         prior_probability=0.01) -> Model:
+        # Initialize Backbone Model
+        backbone_model = self.backbone.create_backbone_model(self.inputs, freeze=freeze_backbone)
+        if weights is None:
+            weights = self.backbone.download_imagenet()
+
+        # Create Sub Networks
+        clf_subnet = self.create_classification_subnet(clf_feature_size=clf_feature_size,
+                                                       prior_prob=prior_probability)
+
+        reg_subnet = self.create_regression_subnet(reg_feature_size=reg_feature_size)
 
     def create_regression_subnet(self, reg_feature_size: int = 256) -> Model:
         """
@@ -147,3 +163,11 @@ class RetinaNet(object):
         h = keras.layers.Reshape((-1, n_class), name='clf_subnet_reshape')(h)
         h = keras.layers.Activation('sigmoid', name='clf_subnet_sigmoid')(h)
         return Model(inputs=inputs, outputs=h, name='clf_subnet_model')
+
+    def load_checkpoint(self, checkpoint: str) -> Model:
+        """
+        :param checkpoint: Checkpoint file path. It resume training from the checkpoint.
+        :return: RetinaNet Model
+        """
+        model = keras.models.load_model(checkpoint, custom_objects=self.backbone.custom_objects)
+        return model
