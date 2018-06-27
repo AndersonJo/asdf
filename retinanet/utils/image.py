@@ -1,7 +1,7 @@
-from PIL import Image
-import numpy as np
-
 import keras.backend as K
+import numpy as np
+import tensorflow as tf
+from PIL import Image
 
 
 def load_image(path: str, rgb=False) -> np.ndarray:
@@ -77,3 +77,16 @@ def flip_channel(image: np.ndarray):
         # 'RGB'->'BGR'
         x = x[..., ::-1]
     return x
+
+
+def resize_images(images, size, method='bilinear', align_corners=False):
+    """
+    Refer to https://www.tensorflow.org/versions/master/api_docs/python/tf/image/resize_images
+    """
+    methods = {
+        'bilinear': tf.image.ResizeMethod.BILINEAR,
+        'nearest': tf.image.ResizeMethod.NEAREST_NEIGHBOR,
+        'bicubic': tf.image.ResizeMethod.BICUBIC,
+        'area': tf.image.ResizeMethod.AREA,
+    }
+    return tf.image.resize_images(images, size, method=methods[method], align_corners=align_corners)

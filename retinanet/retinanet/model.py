@@ -4,6 +4,7 @@ from keras.layers import Input
 
 from retinanet.backbone import load_backbone
 from retinanet.retinanet.layer import PriorProbability
+from retinanet.retinanet.pyramid import graph_pyramid_features, apply_pyramid_features
 
 
 class RetinaNet(object):
@@ -42,12 +43,6 @@ class RetinaNet(object):
         # Initialize RetinaNet
         self._retinanet = None
 
-        # Load snapshot to resume training from the snapshot
-        # if checkpoint is not None:
-        #     model = keras.models.load_model(checkpoint, custom_objects=self.backbone.custom_objects)
-        # else:
-        #     self.create_retinanet()
-
     @property
     def model(self) -> Model:
         return self._retinanet
@@ -63,14 +58,26 @@ class RetinaNet(object):
                          prior_probability=0.01) -> Model:
         # Initialize Backbone Model
         backbone_model = self.backbone.create_backbone_model(self.inputs, freeze=freeze_backbone)
-        if weights is None:
-            weights = self.backbone.download_imagenet()
 
         # Create Sub Networks
         clf_subnet = self.create_classification_subnet(clf_feature_size=clf_feature_size,
                                                        prior_prob=prior_probability)
 
         reg_subnet = self.create_regression_subnet(reg_feature_size=reg_feature_size)
+
+        # Apply Feature Pyramid
+        pyramid_features = graph_pyramid_features(*backbone_model.outputs)
+        pyramids = apply_pyramid_features(pyramid_features, clf_subnet, reg_subnet)
+
+        # Create RetinaNet Model
+        self._retinanet = Model(inputs=self.inputs, outputs=pyramids, name='retinanet')
+
+        # Load weights
+        if weights is None:
+            weights = self.backbone.download_imagenet()
+        self._retinanet.load_weights(weights, by_name=True, skip_mismatch=False)
+
+        return self.model
 
     def create_regression_subnet(self, reg_feature_size: int = 256) -> Model:
         """

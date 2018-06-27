@@ -32,4 +32,10 @@ class TestSubNetwork(object):
 class TestRetinaNet(object):
     def test_create_retinanet(self):
         retinanet = RetinaNet('resnet50', n_class=10, n_anchor=9)
-        retinanet.create_retinanet()
+        retinanet_model = retinanet.create_retinanet()
+
+        images = np.random.rand(1, 800, 600, 3)
+        clf_pred, reg_pred = retinanet_model.predict_on_batch(images)
+
+        assert 10 == clf_pred.shape[-1]
+        assert 4 == reg_pred.shape[-1]
