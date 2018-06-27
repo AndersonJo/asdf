@@ -36,9 +36,9 @@ def graph_pyramid_features(c2: Tensor, c3: Tensor, c4: Tensor, c5: Tensor,
     # Paper: Here we introduce P6 only for covering a larger anchor scale of 512.
     #        P6 is simply a stride two subsampling of P5
     p6_output = Conv2D(feature_size, kernel_size=3, strides=2, padding='same', name='p6_output')(c5)
+    p7 = Activation('relu', name='c6_relu')(p6_output)
 
     # p6 -> relu -> 3 x 3 convolution with stride 2 -> p7
-    p7 = Activation('relu', name='c6_relu')(p6_output)
     p7_output = Conv2D(feature_size, kernel_size=3, strides=2, padding='same', name='p7_output')(p7)
 
     return p2_output, p3_output, p4_output, p5_output, p6_output, p7_output

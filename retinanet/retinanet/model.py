@@ -3,6 +3,7 @@ from keras import Model
 from keras.layers import Input
 
 from retinanet.backbone import load_backbone
+from retinanet.retinanet import losses
 from retinanet.retinanet.layer import PriorProbability
 from retinanet.retinanet.pyramid import graph_pyramid_features, apply_pyramid_features
 
@@ -76,6 +77,12 @@ class RetinaNet(object):
         if weights is None:
             weights = self.backbone.download_imagenet()
         self._retinanet.load_weights(weights, by_name=True, skip_mismatch=False)
+
+        # TODO: Compile the model
+        self._retinanet.compile(
+            loss={'regression': losses.smooth_l1(),
+                  'classification': losses.focal()},
+            optimizer=keras.optimizers.adam(lr=1e-5, clipnorm=0.001))
 
         return self.model
 
