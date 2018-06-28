@@ -80,8 +80,8 @@ class RetinaNet(object):
         self._retinanet.load_weights(weights, by_name=True, skip_mismatch=False)
 
         self._retinanet.compile(
-            loss={'regression': self.smooth_l1(),
-                  'classification': self.focal()},
+            loss={'regression': self.smooth_l1_loss(),
+                  'classification': self.focal_loss()},
             optimizer=keras.optimizers.adam(lr=1e-5, clipnorm=0.001))
 
         return self.model
@@ -178,7 +178,7 @@ class RetinaNet(object):
         h = keras.layers.Activation('sigmoid', name='clf_subnet_sigmoid')(h)
         return Model(inputs=inputs, outputs=h, name='clf_subnet_model')
 
-    def smooth_l1(self, sigma=3.0):
+    def smooth_l1_loss(self, sigma=3.0):
         """
         Create a smooth L1 loss function
         :param sigma: the point where the loss changes from L2 to L1
@@ -223,12 +223,9 @@ class RetinaNet(object):
 
         return _smooth_l1
 
-    def focal(self, alpha=0.25, gamma=2.0):
+    def focal_loss(self, alpha=0.25, gamma=2.0):
         """
         Create a focal loss function
-        :param alpha:
-        :param gamma:
-        :return:
         """
 
         def _focal(y_true, y_pred):
@@ -248,8 +245,17 @@ class RetinaNet(object):
             classification = tf.gather_nd(classification, indices)
 
             # compute the focal loss
+            # alpha_factor = alpha      if object
+            #                1-alpha    if background
+            # For example
+            #       object alpha        = 0.25
+            #       background alpha    = 0.75
             alpha_factor = K.ones_like(labels) * alpha
             alpha_factor = tf.where(K.equal(labels, 1), alpha_factor, 1 - alpha_factor)
+
+            # focal_weight
+            # focal_weight = 1 - pred   if object
+            #                pred       if background
             focal_weight = tf.where(K.equal(labels, 1), 1 - classification, classification)
             focal_weight = alpha_factor * focal_weight ** gamma
 
