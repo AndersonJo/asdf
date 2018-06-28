@@ -14,22 +14,20 @@ def generate_targets(image_batch: np.ndarray, box_batch: np.ndarray, batch_size:
                                                                   mask_shape=image.shape)
 
         regression_group[index] = bbox_transform(anchors, boxes)
-        import ipdb
-        ipdb.set_trace()
 
         # append anchor states to regression targets (necessary for filtering 'ignore', 'positive' and 'negative' anchors)
         anchor_states = np.max(labels_group[index], axis=1, keepdims=True)
         regression_group[index] = np.append(regression_group[index], anchor_states, axis=1)
 
-    labels_batch = np.zeros((batch_size,) + labels_group[0].shape, dtype=K.floatx())
+    classification_batch = np.zeros((batch_size,) + labels_group[0].shape, dtype=K.floatx())
     regression_batch = np.zeros((batch_size,) + regression_group[0].shape, dtype=K.floatx())
 
     # copy all labels and regression values to the batch blob
     for index, (labels, regression) in enumerate(zip(labels_group, regression_group)):
-        labels_batch[index, ...] = labels
+        classification_batch[index, ...] = labels
         regression_batch[index, ...] = regression
 
-    return [regression_batch, labels_batch]
+    return [regression_batch, classification_batch]
 
 
 def anchor_targets_bbox(

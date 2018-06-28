@@ -1,7 +1,9 @@
 import numpy as np
 
 from retinanet.preprocessing.base import ImageGenerator
+from retinanet.preprocessing.pascal import PascalVOCGenerator
 from retinanet.preprocessing.transform import RandomTransformGenerator
+from tests import DATASET_ROOT_PATH
 
 
 class TestBoundingBoxGenerator(object):
@@ -81,3 +83,24 @@ class TestTransformImage(object):
 
         output = next(rand).astype(np.float16)
         np.testing.assert_equal(expected_matrix, output)
+
+
+class TestPascalVOCGenerator(object):
+    def test_1(self):
+        random_generator = RandomTransformGenerator(
+            flip_x=0.5,
+            flip_y=0.5,
+            seed=123)
+
+        voc = PascalVOCGenerator(DATASET_ROOT_PATH, voc_mode='train', random_generator=random_generator)
+        sample = voc[0]
+        regression = sample[1][0]
+        classification = sample[1][1]
+
+        expected_output = [-1., 0., 1.]
+        output = np.unique(regression[:, :, 4])
+        np.testing.assert_equal(expected_output, output)
+
+        # TODO classification test
+        import ipdb
+        ipdb.set_trace()

@@ -41,8 +41,6 @@ class TestTensorFlow(object):
 
     def test_gather_nd(self):
         # Test gather_nd
-        # where function으로 나온 indices를 사용해서 값을 꺼낼수 있다.
-        sess = K.get_session()
 
         indices = np.array([[0., 0.], [1., 0.], [2., 1.]], dtype=np.int32)
         params = [['a', 'b'], ['c', 'd'], ['e', 'f']]
@@ -50,7 +48,30 @@ class TestTensorFlow(object):
         indices_inputs = keras.Input((2,), dtype=tf.int32)
         params_inputs = keras.Input((2,), dtype=tf.string)
 
+        sess = K.get_session()
+
+        # where function으로 나온 indices를 사용해서 값을 꺼낼수 있다.
         pred = sess.run(tf.gather_nd(params_inputs, indices_inputs), feed_dict={params_inputs: params,
                                                                                 indices_inputs: indices})
         expected_output = [b'a', b'c', b'f']
         np.testing.assert_equal(expected_output, pred)
+
+    def test_where_and_gather_nd(self):
+        """
+        tf.where(K.equal(inputs, 1)) 이렇게 하면 당연히 1값만 다 뽑는다.
+        확인차 테스트
+        """
+        inputs = keras.layers.Input(shape=(1,))
+        filtered_indices = tf.where(K.equal(inputs, 1))
+        gathers = tf.gather_nd(inputs, filtered_indices)
+
+        indices = np.array([[0], [1], [-1], [0], [1], [-1]])
+
+        sess = K.get_session()
+        output = sess.run([filtered_indices, gathers], feed_dict={inputs: indices})
+
+        expected_output1 = np.array([[1, 0], [4, 0]])
+        expected_output2 = np.array([1., 1.])
+
+        np.testing.assert_equal(expected_output1, output[0])
+        np.testing.assert_equal(expected_output2, output[1])

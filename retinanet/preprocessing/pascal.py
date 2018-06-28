@@ -144,7 +144,7 @@ class PascalVOCGenerator(ImageGenerator):
         except ValueError as e:
             raise ValueError('invalid annotations file: {0}: {1}'.format(annotation_path, e))
 
-    def __parse_annotation(self, element) -> Union[None, np.ndarray]:
+    def parse_annotation(self, element) -> Union[None, np.ndarray]:
         class_name = _find_node(element, 'name').text
         if class_name not in self.classes:
             return None
@@ -166,7 +166,7 @@ class PascalVOCGenerator(ImageGenerator):
 
         boxes = np.zeros((0, 5))
         for i, element in enumerate(xml_root.iter('object')):
-            box = self.__parse_annotation(element)
+            box = self.parse_annotation(element)
             if box is None:
                 continue
 
