@@ -8,7 +8,7 @@ import argparse
 import keras.backend as K
 import tensorflow as tf
 
-from retinanet.retinanet.model import RetinaNet
+from retinanet.retinanet.model import TrainingRetinaNet
 from retinanet.preprocessing.pascal import PascalVOCGenerator
 from retinanet.preprocessing.transform import RandomTransformGenerator
 
@@ -89,7 +89,7 @@ def train():
     set_session()
 
     # Create RetinaNet
-    retinanet = RetinaNet(parser.backbone)
+    retinanet = TrainingRetinaNet(parser.backbone)
 
     # Create Generator
     train_generator, test_generator = create_data_generator(parser)

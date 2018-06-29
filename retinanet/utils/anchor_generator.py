@@ -1,5 +1,5 @@
-import numpy as np
 import keras.backend as K
+import numpy as np
 
 
 def generate_targets(image_batch: np.ndarray, box_batch: np.ndarray, batch_size: int):

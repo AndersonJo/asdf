@@ -1,3 +1,5 @@
+from typing import List
+
 import keras
 import keras.backend as K
 import tensorflow as tf
@@ -5,22 +7,23 @@ from keras import Model
 from keras.layers import Input
 
 from retinanet.backbone import load_backbone
-from retinanet.retinanet.layer import PriorProbability
+from retinanet.retinanet.layers import PriorProbability
 from retinanet.retinanet.pyramid import graph_pyramid_features, apply_pyramid_features
+from retinanet.utils.anchor_information import AnchorInfo
 
 
-class RetinaNet(object):
+class TrainingRetinaNet(object):
     def __init__(self,
                  backbone: str,
                  n_class: int,
                  n_anchor: int = 9,
-
-                 fpn_feature_size: int = 256,
-                 ):
+                 anchor_info: AnchorInfo = AnchorInfo(),
+                 fpn_feature_size: int = 256):
         """
         # Basic Parameters
         :param n_class: the number of classes
         :param n_anchor: the number of anchors
+        :param anchor_info: AnchorInfo
 
         # Backbone Parameters
         :param backbone: The name of the backbone Model
@@ -34,6 +37,7 @@ class RetinaNet(object):
         # Initialize basic parameters
         self.n_class = n_class
         self.n_anchor = n_anchor
+        self.anchor_info = anchor_info
 
         # Initialize Feature Pyramid Network
         self.fpn_feature_size = fpn_feature_size
@@ -213,8 +217,7 @@ class RetinaNet(object):
             regression_loss = tf.where(
                 K.less(x, 1.0 / sigma_squared),
                 0.5 * sigma_squared * K.pow(x, 2),
-                x - 0.5 / sigma_squared
-            )
+                x - 0.5 / sigma_squared)
 
             # compute the normalizer: the number of positive anchors
             normalizer = K.maximum(1, K.shape(positive_indices)[0])
@@ -277,3 +280,32 @@ class RetinaNet(object):
         """
         model = keras.models.load_model(checkpoint, custom_objects=self.backbone.custom_objects)
         return model
+
+
+class RetinaNet(TrainingRetinaNet):
+    def create_retinanet(self,
+                         # Backbone
+                         freeze_backbone: bool = False,
+                         weights: str = None,
+                         pyramids: List[str] = ('P2', 'P3', 'P4', 'P5', 'P6', 'P7'),
+
+                         # Sub Networks
+                         clf_feature_size: int = 256,
+                         reg_feature_size: int = 256,
+                         prior_probability=0.01,
+
+                         ) -> Model:
+        super(RetinaNet, self).create_retinanet(freeze_backbone=freeze_backbone,
+                                                weights=weights,
+                                                clf_feature_size=clf_feature_size,
+                                                reg_feature_size=reg_feature_size,
+                                                prior_probability=prior_probability)
+
+        # Get Pyramid Features
+        pyramids = list(map(lambda p: p.lower(), pyramids))
+        pyramid_features = [self.model.get_layer(p_name) for p_name in pyramids]
+
+        self.generate_anchors(pyramid_features)
+
+    def generate_anchors(self, pyramid_features: List[tf.Tensor]):
+        pass

@@ -8,7 +8,7 @@ from keras.utils import Sequence
 
 from retinanet.preprocessing.transform import RandomTransformGenerator, adjust_transformation_for_image, warp_affine, \
     transform_bounding_box, rescale_image
-from retinanet.training.anchor import anchor_targets_bbox, bbox_transform, generate_targets
+from retinanet.utils.anchor_generator import generate_targets
 from retinanet.utils.image import normalize_image
 
 

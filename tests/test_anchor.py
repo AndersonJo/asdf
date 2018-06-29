@@ -1,8 +1,6 @@
 import numpy as np
 
-from retinanet.preprocessing.pascal import PascalVOCGenerator, VOC_CLASSES
-from retinanet.training.anchor import generate_anchors, anchor_targets_bbox, \
-    compute_overlap
+from retinanet.utils.anchor_generator import generate_anchors, compute_overlap
 
 
 def test_generate_anchor():
