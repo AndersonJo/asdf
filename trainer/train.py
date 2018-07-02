@@ -2,13 +2,14 @@ import os
 import sys
 
 # Enable relative import
+
 sys.path.insert(0, os.path.abspath(os.path.join(__file__, '..', '..')))
 
 import argparse
 import keras.backend as K
 import tensorflow as tf
 
-from retinanet.retinanet.model import TrainingRetinaNet
+from retinanet.retinanet.model import RetinaNet
 from retinanet.preprocessing.pascal import PascalVOCGenerator
 from retinanet.preprocessing.transform import RandomTransformGenerator
 
@@ -17,8 +18,19 @@ def parse_args(args):
     parser = argparse.ArgumentParser(description='Retinanet training script')
     parser.add_argument('data_mode')
     parser.add_argument('data_path', default='/data/VOCdevkit/')
+    parser.add_argument('--steps', type=int, default=10000, help='number of steps per epoch')
+    parser.add_argument('--epochs', type=int, default=100, help='number of epochs')
+
+    # Backbone
     parser.add_argument('--backbone', default='resnet101', type=str, help='Backbone model (resnet50)')
     parser.add_argument('--freeze-backbone', action='store_true', help='Freeze backbone layers when training')
+    parser.add_argument('--weights', default=None, type=str,
+                        help='weights path for backbone modle. (default is pre-trained ImageNet')
+
+    # Sub Networks
+    parser.add_argument('--clf-feature', default=256, type=int, help='The feature size of classification sub-network')
+    parser.add_argument('--reg-feature', default=256, type=int, help='The feature size of classification sub-network')
+
     parser.add_argument('--batch', default=1, type=int, help='Batch size')
 
     parser.add_argument('--gpu', type=str, help='GPU ID to use')
@@ -88,11 +100,23 @@ def train():
     # Set Session
     set_session()
 
-    # Create RetinaNet
-    retinanet = TrainingRetinaNet(parser.backbone)
-
     # Create Generator
     train_generator, test_generator = create_data_generator(parser)
+
+    # Create RetinaNet
+    retinanet = RetinaNet(parser.backbone, n_class=20)
+    training_model, pred_model = retinanet.create_retinanet(freeze_backbone=parser.freeze_backbone,
+                                                            weights=parser.weights,
+                                                            clf_feature_size=parser.clf_feature,
+                                                            reg_feature_size=parser.reg_feature,
+                                                            prior_probability=0.01)
+
+    training_model.fit_generator(
+        generator=train_generator,
+        steps_per_epoch=parser.steps,
+        epochs=parser.epochs,
+        verbose=1
+    )
 
 
 if __name__ == '__main__':

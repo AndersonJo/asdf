@@ -28,23 +28,6 @@ class UpSample(Layer):
         return (input_shape[0][0],) + input_shape[1][1:3] + (input_shape[0][-1],)
 
 
-class PriorProbability(keras.initializers.Initializer):
-    """
-    Apply a prior probability to the bias of the last layer in the classification subnet.
-    """
-
-    def __init__(self, prior=0.01):
-        self.prior = prior
-
-    def get_config(self):
-        return {
-            'prior': self.prior
-        }
-
-    def __call__(self, shape, dtype=None):
-        return np.ones(shape, dtype=dtype) * -np.log((1 - self.prior) / self.prior)
-
-
 class Anchor(keras.layers.Layer):
     def __init__(self,
                  size: int,

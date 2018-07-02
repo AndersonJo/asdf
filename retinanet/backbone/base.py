@@ -2,11 +2,25 @@ from abc import ABC, abstractmethod
 
 from keras import Model, Input
 
+from retinanet.retinanet import losses
+from retinanet.retinanet.initializer import PriorProbability
+from retinanet.retinanet import layers
+from retinanet.utils.filter_detections import FilterDetections
+
 
 class BackboneBase(ABC):
 
     def __init__(self):
-        self.custom_objects = dict()
+        self.custom_objects = {
+            'UpSample': layers.UpSample,
+            'PriorProbability': PriorProbability,
+            'RegressBoxes': layers.RegressBoxes,
+            'FilterDetections': FilterDetections,
+            'Anchor': layers.Anchor,
+            'ClipBoxes': layers.ClipBoxes,
+            '_smooth_l1': losses.smooth_l1_loss(),
+            '_focal': losses.focal_loss(),
+        }
         self.validate()
 
     @abstractmethod
