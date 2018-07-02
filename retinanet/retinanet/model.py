@@ -59,23 +59,23 @@ class RetinaNet(object):
     def train_model(self) -> Model:
         return self._model_train
 
-    def create_retinanet(self,
-                         # Backbone
-                         freeze_backbone: bool = False,
-                         weights: str = None,
-                         pyramids: List[str] = ('P2', 'P3', 'P4', 'P5', 'P6', 'P7'),
+    def __call__(self,
+                 # Backbone
+                 freeze_backbone: bool = False,
+                 weights: str = None,
+                 pyramids: List[str] = ('P2', 'P3', 'P4', 'P5', 'P6', 'P7'),
 
-                         # Sub Networks
-                         clf_feature_size: int = 256,
-                         reg_feature_size: int = 256,
-                         prior_probability=0.01,
+                 # Sub Networks
+                 clf_feature_size: int = 256,
+                 reg_feature_size: int = 256,
+                 prior_probability=0.01,
 
-                         # NMS
-                         use_nms=True,
+                 # NMS
+                 use_nms=True,
 
-                         # Debug
-                         debug=True
-                         ) -> Tuple[Model, Model]:
+                 # Debug
+                 debug=True
+                 ) -> Tuple[Model, Model, Model]:
 
         # Initialize Backbone Model
         backbone_model = self.backbone.create_backbone_model(self.inputs, freeze=freeze_backbone)
@@ -91,33 +91,34 @@ class RetinaNet(object):
         subnets = apply_pyramid_features(pyramid_features, clf_subnet, reg_subnet)
 
         # Create RetinaNet Model
-        self._model_train = Model(inputs=self.inputs, outputs=subnets, name='retinanet')
+        model = Model(inputs=self.inputs, outputs=subnets, name='retinanet')
 
         # Load weights
         if weights is None:
             weights = self.backbone.download_imagenet()
-        self._model_train.load_weights(weights, by_name=True, skip_mismatch=False)
+        model.load_weights(weights, by_name=True, skip_mismatch=False)
 
+        self._model_pred = self.create_prediction_model(model=model, pyramids=pyramids, use_nms=use_nms)
+
+        self._model_train = model
         self._model_train.compile(
             loss={'regression': losses.smooth_l1_loss(),
                   'classification': losses.focal_loss()},
             optimizer=keras.optimizers.adam(lr=1e-5, clipnorm=0.001))
 
-        self._create_prediction_model(pyramids=pyramids, use_nms=use_nms)
+        return model, self._model_train, self._model_pred
 
-        return self.train_model, self.pred_model
-
-    def _create_prediction_model(self, pyramids: List[str] = ('P2', 'P3', 'P4', 'P5', 'P6', 'P7'),
-                                 use_nms=True,
-                                 name='retinanet-prediction', ):
+    def create_prediction_model(self, model: Model, pyramids: List[str] = ('P2', 'P3', 'P4', 'P5', 'P6', 'P7'),
+                                use_nms=True,
+                                name='retinanet-prediction', ):
         # Get Pyramid Features
         pyramids = list(map(lambda p: p.lower(), pyramids))
-        pyramid_features = [self.train_model.get_layer(p_name).output for p_name in pyramids]
+        pyramid_features = [model.get_layer(p_name).output for p_name in pyramids]
 
         anchors = self.generate_anchors(pyramid_features)
 
-        clf_output = self.train_model.outputs[0]  # (1, points 360360, n_labels)
-        reg_output = self.train_model.outputs[1]  # (1, points 360360, 4)
+        clf_output = model.outputs[0]  # (1, points 360360, n_labels)
+        reg_output = model.outputs[1]  # (1, points 360360, 4)
 
         boxes = RegressBoxes(name='boxes')([anchors, reg_output])
         boxes = ClipBoxes(name='clipped_boxes')([self.inputs, boxes])
@@ -126,10 +127,8 @@ class RetinaNet(object):
         outputs = FilterDetections(nms=use_nms, parallel_iterations=128, name='nms_filter')([boxes, clf_output])
 
         # construct the model
-        model = keras.models.Model(inputs=self.train_model.inputs, outputs=outputs, name=name)
-        self._model_pred = model
-
-        return self.pred_model
+        pred_model = keras.models.Model(inputs=model.inputs, outputs=outputs, name=name)
+        return pred_model
 
     def generate_anchors(self, pyramid_features: List[tf.Tensor]):
         anchor_info = self.anchor_info

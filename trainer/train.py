@@ -104,12 +104,15 @@ def train():
     train_generator, test_generator = create_data_generator(parser)
 
     # Create RetinaNet
+    retina_kwargs = dict(
+        freeze_backbone=parser.freeze_backbone,
+        weights=parser.weights,
+        clf_feature_size=parser.clf_feature,
+        reg_feature_size=parser.reg_feature,
+        prior_probability=0.01
+    )
     retinanet = RetinaNet(parser.backbone, n_class=20)
-    training_model, pred_model = retinanet.create_retinanet(freeze_backbone=parser.freeze_backbone,
-                                                            weights=parser.weights,
-                                                            clf_feature_size=parser.clf_feature,
-                                                            reg_feature_size=parser.reg_feature,
-                                                            prior_probability=0.01)
+    model, training_model, pred_model = retinanet(**retina_kwargs)
 
     training_model.fit_generator(
         generator=train_generator,
