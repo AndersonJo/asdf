@@ -4,19 +4,20 @@ import keras
 import keras.backend as K
 import tensorflow as tf
 from keras import Model
-from keras.layers import Input
+from keras.layers import Input, Concatenate
 
+from retinanet.anchor.information import AnchorInfo
 from retinanet.backbone import load_backbone
-from retinanet.retinanet.layers import PriorProbability
+from retinanet.retinanet.layers import PriorProbability, RegressBoxes, ClipBoxes, Anchor
 from retinanet.retinanet.pyramid import graph_pyramid_features, apply_pyramid_features
-from retinanet.utils.anchor_information import AnchorInfo
+from retinanet.retinanet.temp import Anchors
+from retinanet.utils.filter_detections import FilterDetections
 
 
 class TrainingRetinaNet(object):
     def __init__(self,
                  backbone: str,
                  n_class: int,
-                 n_anchor: int = 9,
                  anchor_info: AnchorInfo = AnchorInfo(),
                  fpn_feature_size: int = 256):
         """
@@ -36,7 +37,7 @@ class TrainingRetinaNet(object):
         """
         # Initialize basic parameters
         self.n_class = n_class
-        self.n_anchor = n_anchor
+        self.n_anchor = anchor_info.count_anchors()
         self.anchor_info = anchor_info
 
         # Initialize Feature Pyramid Network
@@ -47,11 +48,16 @@ class TrainingRetinaNet(object):
         self.backbone = load_backbone(backbone)
 
         # Initialize RetinaNet
-        self._retinanet = None
+        self._model_train = None
+        self._model_pred = None
 
     @property
-    def model(self) -> Model:
-        return self._retinanet
+    def train_model(self) -> Model:
+        return self._model_train
+
+    @property
+    def pred_model(self) -> Model:
+        return self._model_pred
 
     def create_retinanet(self,
                          # Backbone
@@ -73,22 +79,22 @@ class TrainingRetinaNet(object):
 
         # Apply Feature Pyramid
         pyramid_features = graph_pyramid_features(*backbone_model.outputs)
-        pyramids = apply_pyramid_features(pyramid_features, clf_subnet, reg_subnet)
+        subnets = apply_pyramid_features(pyramid_features, clf_subnet, reg_subnet)
 
         # Create RetinaNet Model
-        self._retinanet = Model(inputs=self.inputs, outputs=pyramids, name='retinanet')
+        self._model_train = Model(inputs=self.inputs, outputs=subnets, name='retinanet')
 
         # Load weights
         if weights is None:
             weights = self.backbone.download_imagenet()
-        self._retinanet.load_weights(weights, by_name=True, skip_mismatch=False)
+        self._model_train.load_weights(weights, by_name=True, skip_mismatch=False)
 
-        self._retinanet.compile(
+        self._model_train.compile(
             loss={'regression': self.smooth_l1_loss(),
                   'classification': self.focal_loss()},
             optimizer=keras.optimizers.adam(lr=1e-5, clipnorm=0.001))
 
-        return self.model
+        return self.train_model
 
     def create_regression_subnet(self, reg_feature_size: int = 256) -> Model:
         """
@@ -283,6 +289,7 @@ class TrainingRetinaNet(object):
 
 
 class RetinaNet(TrainingRetinaNet):
+
     def create_retinanet(self,
                          # Backbone
                          freeze_backbone: bool = False,
@@ -294,6 +301,14 @@ class RetinaNet(TrainingRetinaNet):
                          reg_feature_size: int = 256,
                          prior_probability=0.01,
 
+                         # NMS
+                         use_nms=True,
+
+                         # Model
+                         name='retinanet-prediction',
+
+                         # Debug
+                         debug=True
                          ) -> Model:
         super(RetinaNet, self).create_retinanet(freeze_backbone=freeze_backbone,
                                                 weights=weights,
@@ -303,9 +318,35 @@ class RetinaNet(TrainingRetinaNet):
 
         # Get Pyramid Features
         pyramids = list(map(lambda p: p.lower(), pyramids))
-        pyramid_features = [self.model.get_layer(p_name) for p_name in pyramids]
+        pyramid_features = [self.train_model.get_layer(p_name).output for p_name in pyramids]
 
-        self.generate_anchors(pyramid_features)
+        anchors = self.generate_anchors(pyramid_features)
+
+        clf_output = self.train_model.outputs[0]  # (1, points 360360, n_labels)
+        reg_output = self.train_model.outputs[1]  # (1, points 360360, 4)
+
+        boxes = RegressBoxes(name='boxes')([anchors, reg_output])
+        boxes = ClipBoxes(name='clipped_boxes')([self.inputs, boxes])
+
+        # Apply NMS / Score threshold / Select top-k
+        outputs = FilterDetections(nms=use_nms, parallel_iterations=128, name='nms_filter')([boxes, clf_output])
+
+        # construct the model
+        model = keras.models.Model(inputs=self.train_model.inputs, outputs=outputs, name=name)
+        self._model_pred = model
+
+        return self.pred_model
 
     def generate_anchors(self, pyramid_features: List[tf.Tensor]):
-        pass
+        anchor_info = self.anchor_info
+
+        anchors = list()
+        for i, feature in enumerate(pyramid_features):
+            anchor_layer = Anchor(size=anchor_info.sizes[i],
+                                  stride=anchor_info.strides[i],
+                                  ratios=anchor_info.ratios,
+                                  scales=anchor_info.scales,
+                                  )(feature)
+            anchors.append(anchor_layer)
+
+        return Concatenate(axis=1, name='anchors')(anchors)

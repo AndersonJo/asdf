@@ -18,6 +18,9 @@ class AnchorInfo(object):
         self.strides = strides
         self.ratios = np.array(ratios, dtype=K.floatx())
         self.scales = np.array(scales, dtype=K.floatx())
+        self._n_anchor = None
 
     def count_anchors(self) -> int:
-        return len(self.ratios) + len(self.scales)
+        if self._n_anchor is None:
+            self._n_anchor = len(self.ratios) + len(self.scales)
+        return self._n_anchor

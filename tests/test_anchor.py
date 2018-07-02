@@ -1,6 +1,6 @@
 import numpy as np
 
-from retinanet.utils.anchor_generator import generate_anchors, compute_overlap
+from retinanet.anchor.generator import generate_anchors, compute_overlap
 
 
 def test_generate_anchor():
