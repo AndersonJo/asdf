@@ -19,8 +19,8 @@ def parse_args(args):
     parser = argparse.ArgumentParser(description='Retinanet training script')
     parser.add_argument('data_mode')
     parser.add_argument('data_path', default='/data/VOCdevkit/')
-    parser.add_argument('--steps', type=int, default=1, help='number of steps per epoch')
-    parser.add_argument('--epochs', type=int, default=200, help='number of epochs')
+    parser.add_argument('--steps', type=int, default=10000, help='number of steps per epoch')
+    parser.add_argument('--epochs', type=int, default=500, help='number of epochs')
 
     # Backbone
     parser.add_argument('--backbone', default='resnet101', type=str, help='Backbone model (resnet50)')
