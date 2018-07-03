@@ -11,3 +11,6 @@ venv
 .cache
 Untitled.ipynb
 test*.png
+
+# Data
+checkpoints

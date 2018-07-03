@@ -7,9 +7,9 @@ from keras.layers import Input, Concatenate
 
 from retinanet.anchor.information import AnchorInfo
 from retinanet.backbone import load_backbone
-from retinanet.retinanet import losses
 from retinanet.retinanet.initializer import PriorProbability
 from retinanet.retinanet.layers import RegressBoxes, ClipBoxes, Anchor
+from retinanet.retinanet.losses import FocalLoss, SmoothL1Loss
 from retinanet.retinanet.pyramid import graph_pyramid_features, apply_pyramid_features
 from retinanet.utils.filter_detections import FilterDetections
 
@@ -50,6 +50,10 @@ class RetinaNet(object):
         # Initialize Models
         self._model_train = None
         self._model_pred = None
+
+        # Initialize Losses
+        self.focal_loss = FocalLoss()
+        self.smooth_l1_loss = SmoothL1Loss()
 
     @property
     def pred_model(self) -> Model:
@@ -98,12 +102,13 @@ class RetinaNet(object):
             weights = self.backbone.download_imagenet()
         model.load_weights(weights, by_name=True, skip_mismatch=False)
 
+        # Create Prediction Model
         self._model_pred = self.create_prediction_model(model=model, pyramids=pyramids, use_nms=use_nms)
 
         self._model_train = model
         self._model_train.compile(
-            loss={'regression': losses.smooth_l1_loss(),
-                  'classification': losses.focal_loss()},
+            loss={'reg': self.smooth_l1_loss,
+                  'clf': self.focal_loss},
             optimizer=keras.optimizers.adam(lr=1e-5, clipnorm=0.001))
 
         return model, self._model_train, self._model_pred

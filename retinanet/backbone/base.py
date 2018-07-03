@@ -18,8 +18,8 @@ class BackboneBase(ABC):
             'FilterDetections': FilterDetections,
             'Anchor': layers.Anchor,
             'ClipBoxes': layers.ClipBoxes,
-            '_smooth_l1': losses.smooth_l1_loss(),
-            '_focal': losses.focal_loss(),
+            'SmoothL1Loss': losses.SmoothL1Loss(),
+            'FocalLoss': losses.FocalLoss(),
         }
         self.validate()
 

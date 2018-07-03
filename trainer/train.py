@@ -1,25 +1,26 @@
+import argparse
 import os
 import sys
 
 # Enable relative import
+from typing import List
 
 sys.path.insert(0, os.path.abspath(os.path.join(__file__, '..', '..')))
 
-import argparse
 import keras.backend as K
 import tensorflow as tf
 
+from retinanet.preprocessing.generator import create_data_generator
+from keras.callbacks import TensorBoard, ModelCheckpoint, Callback, ReduceLROnPlateau
 from retinanet.retinanet.model import RetinaNet
-from retinanet.preprocessing.pascal import PascalVOCGenerator
-from retinanet.preprocessing.transform import RandomTransformGenerator
 
 
 def parse_args(args):
     parser = argparse.ArgumentParser(description='Retinanet training script')
     parser.add_argument('data_mode')
     parser.add_argument('data_path', default='/data/VOCdevkit/')
-    parser.add_argument('--steps', type=int, default=10000, help='number of steps per epoch')
-    parser.add_argument('--epochs', type=int, default=100, help='number of epochs')
+    parser.add_argument('--steps', type=int, default=1, help='number of steps per epoch')
+    parser.add_argument('--epochs', type=int, default=200, help='number of epochs')
 
     # Backbone
     parser.add_argument('--backbone', default='resnet101', type=str, help='Backbone model (resnet50)')
@@ -37,7 +38,12 @@ def parse_args(args):
     parser.add_argument('--random-transform', help='Randomly transform image and boxes', action='store_true')
 
     # Model
-    parser.add_argument('--checkpoint', type=str, help='Start training from the checkpoint')
+    parser.add_argument('--checkpoint', type=str, default='checkpoints', help='Start training from the checkpoint')
+
+    # TensorBoard
+    parser.add_argument('--tensorboard', type=str, default='/tmp/retinanet-anderson-tensorboard',
+                        help='the path of tensorboard directory')
+
     return parser.parse_args(args)
 
 
@@ -59,35 +65,61 @@ def set_session(sess=None) -> tf.Session:
     return sess
 
 
-def create_data_generator(parser: argparse.ArgumentParser):
-    mode = parser.data_mode.lower().strip()
-    data_path = parser.data_path.strip()
+def create_callbacks(backbone: str,
+                     data_mode: str,
+                     batch_size: int,
+                     validation_generator,
+                     checkpoint_path: str = 'checkpoints',
+                     tf_board_dir: str = '/tmp/retinanet-anderson-tensorboard') -> List[Callback]:
+    # Init
+    backbone = backbone.lower().strip()
+    data_mode = data_mode.lower().strip()
 
-    if parser.random_transform:
-        random_generator = RandomTransformGenerator(
-            min_rotation=-0.1,
-            max_rotation=0.1,
-            min_translation=(-0.1, -0.1),
-            max_translation=(0.1, 0.1),
-            min_shear=-0.1,
-            max_shear=0.1,
-            min_scaling=(0.9, 0.9),
-            max_scaling=(1.1, 1.1),
-            flip_x=0.5,
-            flip_y=0.5,
-            seed=123)
-    else:
-        random_generator = RandomTransformGenerator(
-            flip_x=0.5,
-            flip_y=0.5,
-            seed=123)
+    callbacks = []
+    # TensorBoard Callback
+    if tf_board_dir:
+        tensorboard_callback = TensorBoard(
+            log_dir=tf_board_dir,
+            histogram_freq=0,
+            batch_size=batch_size,
+            write_graph=True,
+            write_grads=False,
+            write_images=False,
+            embeddings_freq=0,
+            embeddings_layer_names=None,
+            embeddings_metadata=None
+        )
+        callbacks.append(tensorboard_callback)
 
-    if mode == 'pascal':
-        train_generator = PascalVOCGenerator(data_path, voc_mode='train', random_generator=random_generator)
-        test_generator = PascalVOCGenerator(data_path, voc_mode='test', random_generator=random_generator)
-    else:
-        raise ValueError('Invalid data generator {0} received'.format(mode))
-    return train_generator, test_generator
+    # Save Model
+    if not os.path.exists(checkpoint_path):
+        os.makedirs(checkpoint_path)
+
+    save_path = os.path.join(checkpoint_path,
+                             '{backbone}_{data_mode}_{{epoch:02d}}.h5'.format(
+                                 backbone=backbone, data_mode=data_mode))
+
+    checkpoint = ModelCheckpoint(
+        save_path,
+        verbose=1,
+        # save_best_only=True,
+        # monitor="mAP",
+        # mode='max'
+    )
+    callbacks.append(checkpoint)
+
+    # Decaying learning rate
+    callbacks.append(ReduceLROnPlateau(
+        monitor='loss',
+        factor=0.1,
+        patience=2,
+        verbose=1,
+        mode='auto',
+
+        cooldown=0,
+        min_lr=0
+    ))
+    return callbacks
 
 
 def train():
@@ -101,7 +133,9 @@ def train():
     set_session()
 
     # Create Generator
-    train_generator, test_generator = create_data_generator(parser)
+    train_generator, validation_generator = create_data_generator(data_mode=parser.data_mode,
+                                                                  data_path=parser.data_path,
+                                                                  random_transform=parser.random_transform)
 
     # Create RetinaNet
     retina_kwargs = dict(
@@ -114,12 +148,21 @@ def train():
     retinanet = RetinaNet(parser.backbone, n_class=20)
     model, training_model, pred_model = retinanet(**retina_kwargs)
 
+    # Create callbacks
+    callbacks = create_callbacks(backbone=parser.backbone,
+                                 data_mode=parser.data_mode,
+                                 batch_size=parser.batch,
+                                 validation_generator=validation_generator,
+                                 checkpoint_path=parser.checkpoint,
+                                 tf_board_dir=parser.tensorboard)
+
+    # Training
     training_model.fit_generator(
         generator=train_generator,
         steps_per_epoch=parser.steps,
         epochs=parser.epochs,
-        verbose=1
-    )
+        callbacks=callbacks,
+        verbose=1)
 
 
 if __name__ == '__main__':

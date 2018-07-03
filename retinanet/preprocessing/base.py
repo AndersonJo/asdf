@@ -184,7 +184,7 @@ class ImageGenerator(BaseGenerator):
         return image_batch
 
     def process_targets(self, image_batch, box_batch):
-        return generate_targets(image_batch, box_batch, batch_size=self.batch_size)
+        return generate_targets(image_batch, box_batch, batch_size=self.batch_size, n_classes=self.count_class())
 
     @staticmethod
     def filter_invalid_bounding_box_batch(image_batch: List[np.ndarray], box_batch: List[np.ndarray]) -> Tuple[

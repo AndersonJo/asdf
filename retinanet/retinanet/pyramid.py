@@ -52,6 +52,6 @@ def apply_pyramid_features(features, clf_subnet, reg_subnet) -> Tuple[Tensor, Te
     :return pyramid features -> Classification Subnet
                              -> Regression Subnet
     """
-    clf = Concatenate(axis=1, name='classification')([clf_subnet(f) for f in features])
-    reg = Concatenate(axis=1, name='regression')([reg_subnet(f) for f in features])
+    clf = Concatenate(axis=1, name='clf')([clf_subnet(f) for f in features])
+    reg = Concatenate(axis=1, name='reg')([reg_subnet(f) for f in features])
     return clf, reg

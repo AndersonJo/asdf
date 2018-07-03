@@ -118,6 +118,9 @@ class PascalVOCGenerator(ImageGenerator):
     def label_to_name(self, label):
         return self.labels[label]
 
+    def count_class(self):
+        return len(self.classes)
+
     def load_image(self, image_info):
         challenge_path, filename = image_info
         image_path = os.path.join(challenge_path, 'JPEGImages', '{0}.jpg'.format(filename))

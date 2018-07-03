@@ -2,7 +2,7 @@ import keras.backend as K
 import numpy as np
 
 
-def generate_targets(image_batch: np.ndarray, box_batch: np.ndarray, batch_size: int):
+def generate_targets(image_batch: np.ndarray, box_batch: np.ndarray, batch_size: int, n_classes: int):
     # get the max image shape
     max_shape = tuple(max(image.shape[x] for image in image_batch) for x in range(3))
 
@@ -10,7 +10,7 @@ def generate_targets(image_batch: np.ndarray, box_batch: np.ndarray, batch_size:
     labels_group = [None] * batch_size
     regression_group = [None] * batch_size
     for index, (image, boxes) in enumerate(zip(image_batch, box_batch)):
-        labels_group[index], boxes, anchors = anchor_targets_bbox(max_shape, boxes, 20,  # self.count_class(),
+        labels_group[index], boxes, anchors = anchor_targets_bbox(max_shape, boxes, n_classes,  # self.count_class(),
                                                                   mask_shape=image.shape)
 
         regression_group[index] = bbox_transform(anchors, boxes)
@@ -27,7 +27,7 @@ def generate_targets(image_batch: np.ndarray, box_batch: np.ndarray, batch_size:
         classification_batch[index, ...] = labels
         regression_batch[index, ...] = regression
 
-    return [regression_batch, classification_batch]
+    return [classification_batch, regression_batch]
 
 
 def anchor_targets_bbox(
