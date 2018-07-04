@@ -1,12 +1,15 @@
 from typing import List, Tuple
 
 import keras
+import keras.backend as K
+import numpy as np
 import tensorflow as tf
 from keras import Model
 from keras.layers import Input, Concatenate
 
 from retinanet.anchor.information import AnchorInfo
 from retinanet.backbone import load_backbone
+from retinanet.preprocessing.pascal import PascalVOCGenerator
 from retinanet.retinanet.initializer import PriorProbability
 from retinanet.retinanet.layers import RegressBoxes, ClipBoxes, Anchor
 from retinanet.retinanet.losses import FocalLoss, SmoothL1Loss
@@ -48,12 +51,17 @@ class RetinaNet(object):
         self.backbone = load_backbone(backbone)
 
         # Initialize Models
+        self._model = None
         self._model_train = None
         self._model_pred = None
 
         # Initialize Losses
         self.focal_loss = FocalLoss()
         self.smooth_l1_loss = SmoothL1Loss()
+
+    @property
+    def model(self) -> Model:
+        return self._model
 
     @property
     def pred_model(self) -> Model:
@@ -67,7 +75,7 @@ class RetinaNet(object):
                  # Backbone
                  freeze_backbone: bool = False,
                  weights: str = None,
-                 pyramids: List[str] = ('P2', 'P3', 'P4', 'P5', 'P6', 'P7'),
+                 pyramids: List[str] = ('P3', 'P4', 'P5', 'P6', 'P7'),
 
                  # Sub Networks
                  clf_feature_size: int = 256,
@@ -92,20 +100,22 @@ class RetinaNet(object):
 
         # Apply Feature Pyramid
         pyramid_features = graph_pyramid_features(*backbone_model.outputs)
-        subnets = apply_pyramid_features(pyramid_features, clf_subnet, reg_subnet)
+        clf_subnet, reg_subnet = apply_pyramid_features(pyramid_features, clf_subnet, reg_subnet)
 
         # Create RetinaNet Model
-        model = Model(inputs=self.inputs, outputs=subnets, name='retinanet')
+        model = Model(inputs=self.inputs, outputs=(clf_subnet, reg_subnet), name='retinanet')
 
         # Load weights
         if weights is None:
             weights = self.backbone.download_imagenet()
         model.load_weights(weights, by_name=True, skip_mismatch=False)
+        self._model = model
+        self._model_train = model
 
         # Create Prediction Model
-        self._model_pred = self.create_prediction_model(model=model, pyramids=pyramids, use_nms=use_nms)
+        self._model_pred = self.create_prediction_model(model=model, pyramids=pyramids,
+                                                        pyramid_features=pyramid_features, use_nms=use_nms)
 
-        self._model_train = model
         self._model_train.compile(
             loss={'reg': self.smooth_l1_loss,
                   'clf': self.focal_loss},
@@ -113,7 +123,9 @@ class RetinaNet(object):
 
         return model, self._model_train, self._model_pred
 
-    def create_prediction_model(self, model: Model, pyramids: List[str] = ('P2', 'P3', 'P4', 'P5', 'P6', 'P7'),
+    def create_prediction_model(self, model: Model,
+                                pyramids: List[str] = ('P3', 'P4', 'P5', 'P6', 'P7'),
+                                pyramid_features=None,
                                 use_nms=True,
                                 name='retinanet-prediction', ):
         # Get Pyramid Features
@@ -133,6 +145,7 @@ class RetinaNet(object):
 
         # construct the model
         pred_model = keras.models.Model(inputs=model.inputs, outputs=outputs, name=name)
+
         return pred_model
 
     def generate_anchors(self, pyramid_features: List[tf.Tensor]):
@@ -211,12 +224,12 @@ class RetinaNet(object):
             return keras.layers.Conv2D(
                 filters=clf_feature_size,
                 activation='relu',
-                name=name,
                 kernel_initializer=keras.initializers.normal(mean=0.0, stddev=0.01, seed=None),
                 bias_initializer='zeros',
                 kernel_size=3,
                 strides=1,
-                padding='same'
+                padding='same',
+                name=name
             )(h)
 
         def clf_conv2(h, name):
@@ -224,10 +237,10 @@ class RetinaNet(object):
                 filters=n_class * n_anchor,
                 kernel_initializer=keras.initializers.zeros(),
                 bias_initializer=PriorProbability(prior=prior_prob),
-                name=name,
                 kernel_size=3,
                 strides=1,
-                padding='same')(h)
+                padding='same',
+                name=name, )(h)
 
         inputs = Input(shape=(None, None, fpn_feature_size), name='clf_subnet_input')
 
@@ -241,6 +254,31 @@ class RetinaNet(object):
         h = keras.layers.Activation('sigmoid', name='clf_subnet_sigmoid')(h)
         return Model(inputs=inputs, outputs=h, name='clf_subnet_model')
 
+    def predict_on_batch(self, image_batch: np.ndarray,
+                         scales: np.ndarray = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        You can get image batch like this
+
+            ```
+            batch = generator.get_batch(idx)
+            image_batch, boxes_true, scales = generator.load_batch(batch)
+            image_batch = generator.process_inputs(image_batch)
+            ```
+
+        :param image_batch: image batch
+        :param scales: images need to be re-sized to the original image size.
+        :return:    boxes   (batch, 300, 4)
+                    scores  (batch, 300)
+                    labels  (batch, 300)
+        """
+        boxes, scores, labels = self.pred_model.predict_on_batch(image_batch)
+
+        # Reduce image scales
+        if scales is not None:
+            boxes = (boxes.T / scales).T
+
+        return boxes, scores, labels
+
     def load_checkpoint(self, checkpoint: str) -> Model:
         """
         :param checkpoint: Checkpoint file path. It resume training from the checkpoint.
@@ -248,3 +286,10 @@ class RetinaNet(object):
         """
         model = keras.models.load_model(checkpoint, custom_objects=self.backbone.custom_objects)
         return model
+
+    # Debug
+    def get(self, tensor):
+        np.random.seed(0)
+        sess = K.get_session()
+        result = sess.run(tensor, feed_dict={self.inputs: np.random.rand(1, 800, 600, 3)})
+        return result

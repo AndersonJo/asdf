@@ -1,3 +1,4 @@
+import keras_resnet
 from keras import Model
 
 from keras.applications.imagenet_utils import get_file
@@ -10,7 +11,7 @@ from retinanet.backbone.base import BackboneBase
 class ResNet50Backbone(BackboneBase):
     def __init__(self):
         super(ResNet50Backbone, self).__init__()
-        # self.custom_objects.update(keras_resnet.custom_objects)
+        self.custom_objects.update(keras_resnet.custom_objects)
 
     def create_backbone_model(self, inputs: Input = None, freeze=False) -> Model:
         if inputs is None:
@@ -36,7 +37,7 @@ class ResNet50Backbone(BackboneBase):
 class ResNet101Backbone(BackboneBase):
     def __init__(self):
         super(ResNet101Backbone, self).__init__()
-        # self.custom_objects.update(keras_resnet.custom_objects)
+        self.custom_objects.update(keras_resnet.custom_objects)
 
     def create_backbone_model(self, inputs: Input = None, freeze=False) -> Model:
         if inputs is None:
@@ -61,7 +62,7 @@ class ResNet101Backbone(BackboneBase):
 class ResNet152Backbone(BackboneBase):
     def __init__(self):
         super(ResNet152Backbone, self).__init__()
-        # self.custom_objects.update(keras_resnet.custom_objects)
+        self.custom_objects.update(keras_resnet.custom_objects)
 
     def create_backbone_model(self, inputs: Input = None, freeze=False) -> Model:
         if inputs is None:

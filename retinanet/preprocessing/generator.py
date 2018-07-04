@@ -4,7 +4,8 @@ from retinanet.preprocessing.pascal import PascalVOCGenerator, VOC_CLASSES
 from retinanet.preprocessing.transform import RandomTransformGenerator
 
 
-def create_data_generator(data_mode: str, data_path: str, classes: dict = VOC_CLASSES, random_transform: bool = False):
+def create_data_generator(data_mode: str, data_path: str, batch: int = 1, classes: dict = VOC_CLASSES,
+                          random_transform: bool = False):
     mode = data_mode.lower().strip()
     data_path = data_path.strip()
 
@@ -28,10 +29,10 @@ def create_data_generator(data_mode: str, data_path: str, classes: dict = VOC_CL
             seed=123)
 
     if mode == 'pascal':
-        train_generator = PascalVOCGenerator(data_path, voc_mode='train', random_generator=random_generator,
-                                             classes=classes)
-        test_generator = PascalVOCGenerator(data_path, voc_mode='test', random_generator=random_generator,
-                                            classes=classes)
+        train_generator = PascalVOCGenerator(data_path, voc_mode='train', batch=batch,
+                                             random_generator=random_generator, classes=classes)
+        test_generator = PascalVOCGenerator(data_path, voc_mode='test', batch=batch,
+                                            random_generator=random_generator, classes=classes)
     else:
         raise ValueError('Invalid data generator {0} received'.format(mode))
     return train_generator, test_generator

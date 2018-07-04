@@ -22,5 +22,5 @@ class AnchorInfo(object):
 
     def count_anchors(self) -> int:
         if self._n_anchor is None:
-            self._n_anchor = len(self.ratios) + len(self.scales)
+            self._n_anchor = len(self.ratios) * len(self.scales)
         return self._n_anchor

@@ -4,7 +4,7 @@ from retinanet.backbone.base import BackboneBase
 from retinanet.backbone.resnet import ResNet50Backbone, ResNet101Backbone, ResNet152Backbone
 
 
-def load_backbone(backbone: str, inputs: Input = None) -> BackboneBase:
+def load_backbone(backbone: str) -> BackboneBase:
     """
     Loads backbone model.
     :param inputs: Input
@@ -12,8 +12,6 @@ def load_backbone(backbone: str, inputs: Input = None) -> BackboneBase:
 
     :return: backbone instance
     """
-    if inputs is None:
-        inputs = Input(shape=(None, None, 3), name='input')
 
     # Instantiate Backbone Controller
     backbone = backbone.lower().strip()

@@ -4,6 +4,7 @@ from keras_resnet.models import ResNet101, ResNet50, ResNet152
 from keras.applications.imagenet_utils import get_file
 
 from retinanet.backbone import load_backbone
+from retinanet.retinanet.layers import UpSample
 
 
 def test_load_pretrained_weight():

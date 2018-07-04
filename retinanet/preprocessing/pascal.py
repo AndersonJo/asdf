@@ -126,7 +126,6 @@ class PascalVOCGenerator(ImageGenerator):
         image_path = os.path.join(challenge_path, 'JPEGImages', '{0}.jpg'.format(filename))
         # if not os.path.exists(image_path):
         #     raise FileNotFoundError('{0} image file not found'.format(image_path))
-
         return load_image(image_path)
 
     def load_annotation(self, annotation_info):

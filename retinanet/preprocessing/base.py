@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 import cv2
 import keras.backend as K
@@ -21,7 +21,7 @@ class BaseGenerator(Sequence, ABC):
         self.filters = list()
 
     def __getitem__(self, index):
-        batch = self._data[index * self.batch_size: (index + 1) * self.batch_size]
+        batch = self.get_batch(index)
         return batch
 
     def __len__(self):
@@ -30,12 +30,19 @@ class BaseGenerator(Sequence, ABC):
         """
         return int(np.ceil(len(self._data) / float(self.batch_size)))
 
+    def get_batch(self, index: int):
+        batch = self._data[index * self.batch_size: (index + 1) * self.batch_size]
+        return batch
+
     def _set_data(self, data):
         self._data = data
 
     def on_epoch_end(self):
         if self.shuffle:
             pass
+
+    def size(self) -> int:
+        return len(self._data)
 
 
 class ImageGenerator(BaseGenerator):
@@ -52,7 +59,6 @@ class ImageGenerator(BaseGenerator):
         'nearest': cv2.BORDER_REPLICATE,
         'reflect': cv2.BORDER_REFLECT_101,
         'wrap': cv2.BORDER_WRAP
-
     }
 
     def __init__(self, batch: int = 1, shuffle: bool = True,
@@ -88,18 +94,17 @@ class ImageGenerator(BaseGenerator):
         self.image_max_size = image_max_size
 
     def __getitem__(self, index):
-        image_batch, box_batch = self.get_batch(index)
+        batch = self.get_batch(index)
+        image_batch, box_batch, _ = self.load_batch(batch)
 
         # Combine a list of images into a single nd-array of images
         inputs = self.process_inputs(image_batch)
 
-        # TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         targets = self.process_targets(image_batch, box_batch)
 
         return inputs, targets
 
-    def get_batch(self, index: int) -> Tuple[list, list]:
-        batch = super(ImageGenerator, self).__getitem__(index)
+    def load_batch(self, batch) -> Tuple[list, list, list]:
         box_batch = self.load_annotation_batch(batch)
         image_batch = self.load_image_batch(batch)
 
@@ -107,8 +112,10 @@ class ImageGenerator(BaseGenerator):
         image_batch, box_batch = self.filter_invalid_bounding_box_batch(image_batch, box_batch)
 
         # Perform image pre-processing
-        image_batch, box_batch = self.preprocess_batch(image_batch, box_batch)
-        return image_batch, box_batch
+        image_batch, box_batch, scales = self.preprocess_batch(image_batch, box_batch)
+
+        scales = np.array(scales, dtype=K.floatx())
+        return image_batch, box_batch, scales
 
     def count_class(self) -> int:
         raise NotImplementedError('count_class method not implemented')
@@ -133,7 +140,8 @@ class ImageGenerator(BaseGenerator):
         annotation_batch = [self.load_annotation(annotation_index) for annotation_index in batch]
         return list(filter(lambda x: x is not None, annotation_batch))
 
-    def preprocess_batch(self, image_batch: list, box_batch: list) -> Tuple[list, list]:
+    def preprocess_batch(self, image_batch: list, box_batch: list) -> Tuple[list, list, list]:
+        scale_ratio_batch = list()
         for i, (image, boxes) in enumerate(zip(image_batch, box_batch)):
             # pre-process image
             image = self.preprocess_image(image)
@@ -147,7 +155,9 @@ class ImageGenerator(BaseGenerator):
 
             image_batch[i] = image
             box_batch[i] = boxes
-        return image_batch, box_batch
+            scale_ratio_batch.append(scale_ratio)
+
+        return image_batch, box_batch, scale_ratio_batch
 
     def preprocess_image(self, image) -> np.ndarray:
         return normalize_image(image)
@@ -185,6 +195,18 @@ class ImageGenerator(BaseGenerator):
 
     def process_targets(self, image_batch, box_batch):
         return generate_targets(image_batch, box_batch, batch_size=self.batch_size, n_classes=self.count_class())
+
+    # def separate_boxes_and_labels(self, box_batch: List[np.ndarray]):
+    #     n_boxes = len(box_batch)
+    #     n_classes = self.count_class()
+    #
+    #     labels = np.zeros((n_boxes, n_classes))
+    #
+    #     for i in range(n_boxes):
+    #         box_batch[i][:, 4:]
+    #
+    #     import ipdb
+    #     ipdb.set_trace()
 
     @staticmethod
     def filter_invalid_bounding_box_batch(image_batch: List[np.ndarray], box_batch: List[np.ndarray]) -> Tuple[

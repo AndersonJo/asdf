@@ -3,15 +3,17 @@ import os
 import sys
 
 # Enable relative import
-from typing import List
-
 sys.path.insert(0, os.path.abspath(os.path.join(__file__, '..', '..')))
+
+from typing import List
 
 import keras.backend as K
 import tensorflow as tf
-
-from retinanet.preprocessing.generator import create_data_generator
 from keras.callbacks import TensorBoard, ModelCheckpoint, Callback, ReduceLROnPlateau
+
+from retinanet.callbacks.eval import Evaluate
+from retinanet.callbacks.wrapper import ModelWrapperCallback
+from retinanet.preprocessing.generator import create_data_generator
 from retinanet.retinanet.model import RetinaNet
 
 
@@ -23,7 +25,7 @@ def parse_args(args):
     parser.add_argument('--epochs', type=int, default=500, help='number of epochs')
 
     # Backbone
-    parser.add_argument('--backbone', default='resnet101', type=str, help='Backbone model (resnet50)')
+    parser.add_argument('--backbone', default='resnet50', type=str, help='Backbone model (resnet50)')
     parser.add_argument('--freeze-backbone', action='store_true', help='Freeze backbone layers when training')
     parser.add_argument('--weights', default=None, type=str,
                         help='weights path for backbone modle. (default is pre-trained ImageNet')
@@ -34,11 +36,12 @@ def parse_args(args):
 
     parser.add_argument('--batch', default=1, type=int, help='Batch size')
 
-    parser.add_argument('--gpu', type=str, help='GPU ID to use')
+    parser.add_argument('--gpu', type=str, default="0", help='GPU ID to use')
     parser.add_argument('--random-transform', help='Randomly transform image and boxes', action='store_true')
 
     # Model
-    parser.add_argument('--checkpoint', type=str, default='checkpoints', help='Start training from the checkpoint')
+    parser.add_argument('--checkpoint-dir', type=str, default='checkpoints', help='Start training from the checkpoint')
+    parser.add_argument('--checkpoint', type=str, default=None, help='Checkpoint file name to load the model')
 
     # TensorBoard
     parser.add_argument('--tensorboard', type=str, default='/tmp/retinanet-anderson-tensorboard',
@@ -53,6 +56,7 @@ def define_gpu(gpu: str):
     :param gpu: GPU ID
     """
     if gpu:
+        gpu = str(gpu)
         os.environ['CUDA_VISIBLE_DEVICES'] = gpu
 
 
@@ -69,6 +73,7 @@ def create_callbacks(backbone: str,
                      data_mode: str,
                      batch_size: int,
                      validation_generator,
+                     prediction_model,
                      checkpoint_path: str = 'checkpoints',
                      tf_board_dir: str = '/tmp/retinanet-anderson-tensorboard') -> List[Callback]:
     # Init
@@ -107,6 +112,12 @@ def create_callbacks(backbone: str,
         # mode='max'
     )
     callbacks.append(checkpoint)
+
+    # Evaluation Callback
+    if validation_generator:
+        evaluation = Evaluate(validation_generator, tensorboard=tensorboard_callback)
+        evaluation = ModelWrapperCallback(evaluation, prediction_model)
+        callbacks.append(evaluation)
 
     # Decaying learning rate
     callbacks.append(ReduceLROnPlateau(
@@ -153,7 +164,8 @@ def train():
                                  data_mode=parser.data_mode,
                                  batch_size=parser.batch,
                                  validation_generator=validation_generator,
-                                 checkpoint_path=parser.checkpoint,
+                                 prediction_model=pred_model,
+                                 checkpoint_path=parser.checkpoint_dir,
                                  tf_board_dir=parser.tensorboard)
 
     # Training
