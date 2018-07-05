@@ -196,18 +196,6 @@ class ImageGenerator(BaseGenerator):
     def process_targets(self, image_batch, box_batch):
         return generate_targets(image_batch, box_batch, batch_size=self.batch_size, n_classes=self.count_class())
 
-    # def separate_boxes_and_labels(self, box_batch: List[np.ndarray]):
-    #     n_boxes = len(box_batch)
-    #     n_classes = self.count_class()
-    #
-    #     labels = np.zeros((n_boxes, n_classes))
-    #
-    #     for i in range(n_boxes):
-    #         box_batch[i][:, 4:]
-    #
-    #     import ipdb
-    #     ipdb.set_trace()
-
     @staticmethod
     def filter_invalid_bounding_box_batch(image_batch: List[np.ndarray], box_batch: List[np.ndarray]) -> Tuple[
         List[np.ndarray], List[np.ndarray]]:

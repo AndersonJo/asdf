@@ -22,13 +22,15 @@ def parse_args(args):
     parser.add_argument('data_mode')
     parser.add_argument('data_path', default='/data/VOCdevkit/')
     parser.add_argument('--steps', type=int, default=10000, help='number of steps per epoch')
-    parser.add_argument('--epochs', type=int, default=500, help='number of epochs')
+    parser.add_argument('--epochs', type=int, default=50, help='number of epochs')
 
     # Backbone
-    parser.add_argument('--backbone', default='resnet50', type=str, help='Backbone model (resnet50)')
+    parser.add_argument('--backbone', default='resnet101', type=str, help='Backbone model (resnet50)')
     parser.add_argument('--freeze-backbone', action='store_true', help='Freeze backbone layers when training')
     parser.add_argument('--weights', default=None, type=str,
                         help='weights path for backbone modle. (default is pre-trained ImageNet')
+    parser.add_argument('--p2', action='store_true',
+                        help='Use P2 of feature pyramid network for detecting tiny objects')
 
     # Sub Networks
     parser.add_argument('--clf-feature', default=256, type=int, help='The feature size of classification sub-network')
@@ -74,6 +76,7 @@ def create_callbacks(backbone: str,
                      batch_size: int,
                      validation_generator,
                      prediction_model,
+                     use_p2: bool = False,
                      checkpoint_path: str = 'checkpoints',
                      tf_board_dir: str = '/tmp/retinanet-anderson-tensorboard') -> List[Callback]:
     # Init
@@ -100,10 +103,11 @@ def create_callbacks(backbone: str,
     if not os.path.exists(checkpoint_path):
         os.makedirs(checkpoint_path)
 
-    save_path = os.path.join(checkpoint_path,
-                             '{backbone}_{data_mode}_{{epoch:02d}}.h5'.format(
-                                 backbone=backbone, data_mode=data_mode))
-
+    p2_message = '_p2' if use_p2 else ''
+    message = '{backbone}{p2}_{data_mode}_{{epoch:02d}}.h5'.format(backbone=backbone,
+                                                                   p2=p2_message,
+                                                                   data_mode=data_mode)
+    save_path = os.path.join(checkpoint_path, message)
     checkpoint = ModelCheckpoint(
         save_path,
         verbose=1,
@@ -114,10 +118,10 @@ def create_callbacks(backbone: str,
     callbacks.append(checkpoint)
 
     # Evaluation Callback
-    if validation_generator:
-        evaluation = Evaluate(validation_generator, tensorboard=tensorboard_callback)
-        evaluation = ModelWrapperCallback(evaluation, prediction_model)
-        callbacks.append(evaluation)
+    # if validation_generator:
+    #     evaluation = Evaluate(validation_generator, tensorboard=tensorboard_callback)
+    #     evaluation = ModelWrapperCallback(evaluation, prediction_model)
+    # callbacks.append(evaluation)
 
     # Decaying learning rate
     callbacks.append(ReduceLROnPlateau(
@@ -154,7 +158,8 @@ def train():
         weights=parser.weights,
         clf_feature_size=parser.clf_feature,
         reg_feature_size=parser.reg_feature,
-        prior_probability=0.01
+        prior_probability=0.01,
+        use_p2=parser.p2
     )
     retinanet = RetinaNet(parser.backbone, n_class=20)
     model, training_model, pred_model = retinanet(**retina_kwargs)
@@ -165,6 +170,7 @@ def train():
                                  batch_size=parser.batch,
                                  validation_generator=validation_generator,
                                  prediction_model=pred_model,
+                                 use_p2=parser.p2,
                                  checkpoint_path=parser.checkpoint_dir,
                                  tf_board_dir=parser.tensorboard)
 

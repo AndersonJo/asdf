@@ -15,6 +15,7 @@ from retinanet.retinanet.layers import RegressBoxes, ClipBoxes, Anchor
 from retinanet.retinanet.losses import FocalLoss, SmoothL1Loss
 from retinanet.retinanet.pyramid import graph_pyramid_features, apply_pyramid_features
 from retinanet.utils.filter_detections import FilterDetections
+from retinanet.utils.image import denormalize_image
 
 
 class RetinaNet(object):
@@ -76,6 +77,7 @@ class RetinaNet(object):
                  freeze_backbone: bool = False,
                  weights: str = None,
                  pyramids: List[str] = ('P3', 'P4', 'P5', 'P6', 'P7'),
+                 use_p2: bool = False,
 
                  # Sub Networks
                  clf_feature_size: int = 256,
@@ -99,7 +101,7 @@ class RetinaNet(object):
         reg_subnet = self.create_regression_subnet(reg_feature_size=reg_feature_size)
 
         # Apply Feature Pyramid
-        pyramid_features = graph_pyramid_features(*backbone_model.outputs)
+        pyramid_features = graph_pyramid_features(*backbone_model.outputs, use_p2=use_p2)
         clf_subnet, reg_subnet = apply_pyramid_features(pyramid_features, clf_subnet, reg_subnet)
 
         # Create RetinaNet Model
@@ -258,12 +260,17 @@ class RetinaNet(object):
                          scales: np.ndarray = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         You can get image batch like this
-
-            ```
+        ```
             batch = generator.get_batch(idx)
             image_batch, boxes_true, scales = generator.load_batch(batch)
             image_batch = generator.process_inputs(image_batch)
-            ```
+        ```
+
+        You can use denormalize function after calling this method
+        ```
+            boxes, scores, labels = retinanet.predict_on_batch(image_batch, scales)
+            image_batch = denormalize_image(image_batch)
+        ```
 
         :param image_batch: image batch
         :param scales: images need to be re-sized to the original image size.
@@ -273,7 +280,7 @@ class RetinaNet(object):
         """
         boxes, scores, labels = self.pred_model.predict_on_batch(image_batch)
 
-        # Reduce image scales
+        # Get back image scales to the original size
         if scales is not None:
             boxes = (boxes.T / scales).T
 
