@@ -1,201 +1,85 @@
-import os
-
 import cv2
+
 import numpy as np
 
-from retinanet.anchor.generator import compute_overlap
 from retinanet.preprocessing.pascal import PascalVOCGenerator
-from retinanet.utils.visualize import draw_annotations, draw_detections
+from retinanet.retinanet.model import RetinaNet
+from retinanet.utils.image import denormalize_image
 
 
-def _compute_ap(recall, precision):
-    """ Compute the average precision, given the recall and precision curves.
-
-    Code originally from https://github.com/rbgirshick/py-faster-rcnn.
-
-    # Arguments
-        recall:    The recall curve (list).
-        precision: The precision curve (list).
-    # Returns
-        The average precision as computed in py-faster-rcnn.
+def evaluate(retinanet: RetinaNet,
+             generator: PascalVOCGenerator,
+             score_threshold: float = 0.05,
+             max_detections: int = 300,
+             limit: int = 10):
     """
-    # correct AP calculation
-    # first append sentinel values at the end
-    mrec = np.concatenate(([0.], recall, [1.]))
-    mpre = np.concatenate(([0.], precision, [0.]))
-
-    # compute the precision envelope
-    for i in range(mpre.size - 1, 0, -1):
-        mpre[i - 1] = np.maximum(mpre[i - 1], mpre[i])
-
-    # to calculate area under PR curve, look for points
-    # where X axis (recall) changes value
-    i = np.where(mrec[1:] != mrec[:-1])[0]
-
-    # and sum (\Delta recall) * prec
-    ap = np.sum((mrec[i + 1] - mrec[i]) * mpre[i + 1])
-    return ap
-
-
-def _get_detections(generator: PascalVOCGenerator, model, score_threshold=0.05, max_detections=100, save_path=None):
-    """ Get the detections from the model using the generator.
-
-    The result is a list of lists such that the size is:
-        all_detections[num_images][num_classes] = detections[num_detections, 4 + num_classes]
-
-    # Arguments
-        generator       : The generator used to run images through the model.
-        model           : The model to run on the images.
-        score_threshold : The score confidence threshold to use.
-        max_detections  : The maximum number of detections to use per image.
-        save_path       : The path to save the images with visualized detections to.
-    # Returns
-        A list of lists containing the detections for each image in the generator.
+    :param retinanet: Retinanet Instance
+    :param generator: Validation generator
+    :param score_threshold: The score confidence threshold
+    :param max_detections: The maximum number of detections per image
+    :param limit: Limit the evaluating data size
+    :return:
     """
-    all_detections = [[None for i in range(generator.count_class())] for j in range(generator.size())]
-
-    for i in range(generator.size()):
-        import ipdb
-        ipdb.set_trace()
-        image_batch, box_batch = generator[i]
-
-        raw_image = generator.load_image(i)
-        image = generator.preprocess_image(raw_image.copy())
-        image, scale = generator.resize_image(image)
-
-        # run network
-        boxes, scores, labels = model.predict_on_batch(np.expand_dims(image, axis=0))
-
-        # correct boxes for image scale
-        boxes /= scale
-
-        # select indices which have a score above the threshold
-        indices = np.where(scores[0, :] > score_threshold)[0]
-
-        # select those scores
-        scores = scores[0][indices]
-
-        # find the order with which to sort the scores
-        scores_sort = np.argsort(-scores)[:max_detections]
-
-        # select detections
-        image_boxes = boxes[0, indices[scores_sort], :]
-        image_scores = scores[scores_sort]
-        image_labels = labels[0, indices[scores_sort]]
-        image_detections = np.concatenate(
-            [image_boxes, np.expand_dims(image_scores, axis=1), np.expand_dims(image_labels, axis=1)], axis=1)
-
-        if save_path is not None:
-            draw_annotations(raw_image, generator.load_annotations(i), label_to_name=generator.label_to_name)
-            draw_detections(raw_image, image_boxes, image_scores, image_labels, label_to_name=generator.label_to_name)
-
-            cv2.imwrite(os.path.join(save_path, '{}.png'.format(i)), raw_image)
-
-        # copy detections to all_detections
-        for label in range(generator.num_classes()):
-            all_detections[i][label] = image_detections[image_detections[:, -1] == label, :-1]
-
-        print('{}/{}'.format(i + 1, generator.size()), end='\r')
-
-    return all_detections
-
-
-def load_images_and_boxes(generator: PascalVOCGenerator, limit=10):
-    """
-    Retreive all ground-truth boxes from the generator
-    """
-
     for i, idx in enumerate(range(generator.size())):
         if i >= limit:
             break
+
+        # Get image data
         batch = generator.get_batch(idx)
-        images, boxes = generator.load_batch(batch)
+        image_batch, boxes_true, scales = generator.load_batch(batch)
+        image_batch = generator.process_inputs(image_batch)
+
+        # Predict
+        boxes, scores, labels = retinanet.predict_on_batch(image_batch, scales)
+        image_batch = denormalize_image(image_batch)
+        scores = np.random.rand(generator.batch_size, 300) - 0.8
+
+        # Select indices which have scores above the threshold
+        indices = np.where(scores > score_threshold)
+
+        # Select by indices
+        boxes = boxes[indices]
+        scores = scores[indices]
+        labels = labels[indices]
+
+        sorted_score_indices = np.argsort(-scores)[:max_detections]
+        indices = indices[0][sorted_score_indices]
+        sorted_boxes = boxes[sorted_score_indices]
+        sorted_scores = scores[sorted_score_indices]
+        sorted_labels = labels[sorted_score_indices]
+
+        for image_idx in range(image_batch.shape[0]):
+            image = image_batch[image_idx]
+
+            # Draw ground-truth boxes
+            gtboxes = boxes_true[image_idx]
+            draw_boxes(image, gtboxes)
+
+            # Draw predicted boxes
+            boxes = sorted_boxes[image_idx]
+            draw_boxes(image, boxes, color=(255, 255, 0))
+
+        # draw_annotations(image_batch, boxes_true, label_to_name=generator.label_to_name)
+
+        cv2.imwrite('haha1.png', image_batch[0])
+        cv2.imwrite('haha2.png', image_batch[1])
+
+        import ipdb
+        ipdb.set_trace()
+    pass
 
 
-def evaluate2(
-        generator,
-        model,
-        iou_threshold=0.5,
-        score_threshold=0.05,
-        max_detections=100,
-        save_path=None
-):
-    """ Evaluate a given dataset using a given model.
+def draw_boxes(image, boxes, color=(0, 255, 0), thickness=2):
+    for box_idx in range(boxes.shape[0]):
+        draw_box(image, boxes[box_idx], color, thickness)
 
-    # Arguments
-        generator       : The generator that represents the dataset to evaluate.
-        model           : The model to evaluate.
-        iou_threshold   : The threshold used to consider when a detection is positive or negative.
-        score_threshold : The score confidence threshold to use for detections.
-        max_detections  : The maximum number of detections to use per image.
-        save_path       : The path to save images with visualized detections to.
-    # Returns
-        A dict mapping class names to mAP scores.
+
+def draw_box(image, box, color, thickness=2):
     """
-    # gather all detections and annotations
-    all_detections = _get_detections(generator, model, score_threshold=score_threshold, max_detections=max_detections,
-                                     save_path=save_path)
-    all_annotations = _get_annotations(generator)
-    average_precisions = {}
-
-    # all_detections = pickle.load(open('all_detections.pkl', 'rb'))
-    # all_annotations = pickle.load(open('all_annotations.pkl', 'rb'))
-    # pickle.dump(all_detections, open('all_detections.pkl', 'wb'))
-    # pickle.dump(all_annotations, open('all_annotations.pkl', 'wb'))
-
-    # process detections and annotations
-    for label in range(generator.num_classes()):
-        false_positives = np.zeros((0,))
-        true_positives = np.zeros((0,))
-        scores = np.zeros((0,))
-        num_annotations = 0.0
-
-        for i in range(generator.size()):
-            detections = all_detections[i][label]
-            annotations = all_annotations[i][label]
-            num_annotations += annotations.shape[0]
-            detected_annotations = []
-
-            for d in detections:
-                scores = np.append(scores, d[4])
-
-                if annotations.shape[0] == 0:
-                    false_positives = np.append(false_positives, 1)
-                    true_positives = np.append(true_positives, 0)
-                    continue
-
-                overlaps = compute_overlap(np.expand_dims(d, axis=0), annotations)
-                assigned_annotation = np.argmax(overlaps, axis=1)
-                max_overlap = overlaps[0, assigned_annotation]
-
-                if max_overlap >= iou_threshold and assigned_annotation not in detected_annotations:
-                    false_positives = np.append(false_positives, 0)
-                    true_positives = np.append(true_positives, 1)
-                    detected_annotations.append(assigned_annotation)
-                else:
-                    false_positives = np.append(false_positives, 1)
-                    true_positives = np.append(true_positives, 0)
-
-        # no annotations -> AP for this class is 0 (is this correct?)
-        if num_annotations == 0:
-            average_precisions[label] = 0
-            continue
-
-        # sort by score
-        indices = np.argsort(-scores)
-        false_positives = false_positives[indices]
-        true_positives = true_positives[indices]
-
-        # compute false positives and true positives
-        false_positives = np.cumsum(false_positives)
-        true_positives = np.cumsum(true_positives)
-
-        # compute recall and precision
-        recall = true_positives / num_annotations
-        precision = true_positives / np.maximum(true_positives + false_positives, np.finfo(np.float64).eps)
-
-        # compute average precision
-        average_precision = _compute_ap(recall, precision)
-        average_precisions[label] = average_precision
-
-    return average_precisions
+    :param image: the original image
+    :param box: (x1, y1, x2, y2)
+    :param color: RGB colors as a tuple
+    :param thickness: ...
+    """
+    b = np.array(box).astype(int)
+    cv2.rectangle(image, (b[0], b[1]), (b[2], b[3]), color, thickness, cv2.LINE_AA)

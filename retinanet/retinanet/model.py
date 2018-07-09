@@ -287,12 +287,24 @@ class RetinaNet(object):
 
         return boxes, scores, labels
 
-    def load_checkpoint(self, checkpoint: str) -> Model:
+    def load_model(self, model_path: str, p2: bool = False, convert: bool = False) -> Model:
         """
-        :param checkpoint: Checkpoint file path. It resume training from the checkpoint.
+        :param model_path: Checkpoint file path or Inference model path
+        :param p2: whether to use P2 feature pyramid
+        :param convert: Convert training model to inference model
         :return: RetinaNet Model
         """
-        model = keras.models.load_model(checkpoint, custom_objects=self.backbone.custom_objects)
+        model = keras.models.load_model(model_path, custom_objects=self.backbone.custom_objects)
+
+        # Convert?
+        pyramids = ['P3', 'P4', 'P5', 'P6', 'P7']
+        if p2:
+            pyramids.insert(0, 'P2')
+
+        if convert:
+            model = self.create_prediction_model(model, pyramids=pyramids)
+            self._model_pred = model
+
         return model
 
     # Debug

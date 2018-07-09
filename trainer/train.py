@@ -11,8 +11,6 @@ import keras.backend as K
 import tensorflow as tf
 from keras.callbacks import TensorBoard, ModelCheckpoint, Callback, ReduceLROnPlateau
 
-from retinanet.callbacks.eval import Evaluate
-from retinanet.callbacks.wrapper import ModelWrapperCallback
 from retinanet.preprocessing.generator import create_data_generator
 from retinanet.retinanet.model import RetinaNet
 

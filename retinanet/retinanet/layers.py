@@ -48,6 +48,10 @@ class Anchor(keras.layers.Layer):
                                                    ratios=self.ratios,
                                                    scales=self.scales))
 
+        # TODO: Remove the next statement. It's for debug
+        if 'n_anchors' in kwargs:
+            del kwargs['n_anchors']
+
         super(Anchor, self).__init__(*args, **kwargs)
 
     def call(self, pyramid_features, *args, **kwargs) -> tf.Tensor:

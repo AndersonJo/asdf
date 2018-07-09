@@ -86,7 +86,7 @@ def main():
 
     # Convert training model to inference model
     retinanet = RetinaNet(backbone)
-    training_model = retinanet.load_checkpoint(parser.source)
+    training_model = retinanet.load_model(parser.source)
     prediction_model = retinanet.create_prediction_model(training_model,
                                                          pyramids=pyramids)
 
