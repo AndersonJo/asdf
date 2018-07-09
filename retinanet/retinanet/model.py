@@ -21,7 +21,6 @@ from retinanet.utils.image import denormalize_image
 class RetinaNet(object):
     def __init__(self,
                  backbone: str,
-                 n_class: int,
                  anchor_info: AnchorInfo = AnchorInfo(),
                  fpn_feature_size: int = 256):
         """
@@ -40,7 +39,6 @@ class RetinaNet(object):
         :param fpn_feature_size: the feature size of the pyramid network
         """
         # Initialize basic parameters
-        self.n_class = n_class
         self.n_anchor = anchor_info.count_anchors()
         self.anchor_info = anchor_info
 
@@ -73,6 +71,8 @@ class RetinaNet(object):
         return self._model_train
 
     def __call__(self,
+                 n_class: int = 20,
+
                  # Backbone
                  freeze_backbone: bool = False,
                  weights: str = None,
@@ -140,7 +140,7 @@ class RetinaNet(object):
         reg_output = model.outputs[1]  # (1, points 360360, 4)
 
         boxes = RegressBoxes(name='boxes')([anchors, reg_output])
-        boxes = ClipBoxes(name='clipped_boxes')([self.inputs, boxes])
+        boxes = ClipBoxes(name='clipped_boxes')([model.inputs[0], boxes])
 
         # Apply NMS / Score threshold / Select top-k
         outputs = FilterDetections(nms=use_nms, parallel_iterations=128, name='nms_filter')([boxes, clf_output])
@@ -210,15 +210,16 @@ class RetinaNet(object):
         return keras.models.Model(inputs=inputs, outputs=h, name='reg_subnet_model')
 
     def create_classification_subnet(self,
+                                     n_class: int = 20,
                                      clf_feature_size: int = 256,
                                      prior_prob: float = 0.01) -> Model:
         """
+        :param n_class: the number of classes like Car, Chair, Person
         :param clf_feature_size: Classification subnet's feature size
         :param prior_prob:
         :param name:
         :return:
         """
-        n_class = self.n_class
         n_anchor = self.n_anchor
         fpn_feature_size = self.fpn_feature_size
 

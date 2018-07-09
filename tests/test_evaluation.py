@@ -1,13 +1,10 @@
 import cv2
-
-from keras import Model
 import numpy as np
 
 from retinanet.preprocessing.generator import create_data_generator
 from retinanet.preprocessing.pascal import PascalVOCGenerator
 from retinanet.retinanet.model import RetinaNet
 from retinanet.utils.image import denormalize_image
-from retinanet.utils.visualize import draw_annotations
 from tests import DATASET_ROOT_PATH
 
 
@@ -104,13 +101,11 @@ def draw_boxes(image, boxes, color=(0, 255, 0), thickness=2):
 
 
 def draw_box(image, box, color, thickness=2):
-    """ Draws a box on an image with a given color.
-
-    # Arguments
-        image     : The image to draw on.
-        box       : A list of 4 elements (x1, y1, x2, y2).
-        color     : The color of the box.
-        thickness : The thickness of the lines to draw a box with.
+    """
+    :param image: the original image
+    :param box: (x1, y1, x2, y2)
+    :param color: RGB colors as a tuple
+    :param thickness: ...
     """
     b = np.array(box).astype(int)
     cv2.rectangle(image, (b[0], b[1]), (b[2], b[3]), color, thickness, cv2.LINE_AA)
