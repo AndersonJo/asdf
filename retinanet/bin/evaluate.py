@@ -5,7 +5,7 @@ import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(__file__, '..', '..', '..')))
 
-from retinanet.utils.eval import evaluate
+from retinanet.utils.eval import evaluate, Evaluator
 from retinanet.retinanet.model import RetinaNet
 from retinanet.preprocessing.generator import create_data_generator
 from retinanet.preprocessing.pascal import VOC_CLASSES
@@ -28,7 +28,7 @@ def parse_model_path(model_path):
 
     regex = re.compile('(?P<backbone>[\w\d]+)_(?P<data_mode>\w+)_(?P<epochs>\d+)_?(?P<p2>p2)?.h5')
     search = re.findall(regex, model_path)
-    if search is not None:
+    if search is not None and search:
         backbone, data_mode, epochs, p2 = search[0]
     return backbone, data_mode, epochs, p2
 
@@ -36,6 +36,9 @@ def parse_model_path(model_path):
 def main():
     parser = parse_args(sys.argv[1:])
     backbone, data_mode, epochs, p2 = parse_model_path(parser.inference_model)
+
+    if backbone is None or data_mode is None or epochs is None:
+        raise Exception('{0} not found'.format(parser.inference_model))
 
     # Load dataset
     train_generator, test_generator = create_data_generator(parser.data_mode, parser.data_path, batch=2,
@@ -49,14 +52,15 @@ def main():
     # Load training model or converted inference model
     # When you load training model, you need to add `--convert` option to convert the training model to inference one
     retinanet = RetinaNet(backbone)
-    model = retinanet.load_model(parser.inference_model,
-                                 p2=parser.p2,
-                                 convert=parser.convert)
+    inference_model = retinanet.load_model(parser.inference_model,
+                                           p2=parser.p2,
+                                           convert=parser.convert)
 
-    print(model.summary(line_length=120))
+    print(inference_model.summary(line_length=120))
 
     # Evaluate
-    evaluate()
+    evaluator = Evaluator(inference_model, test_generator)
+    evaluator()
 
 
 if __name__ == '__main__':

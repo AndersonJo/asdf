@@ -16,3 +16,4 @@ test*.png
 checkpoints
 inferences
 temp
+tmp

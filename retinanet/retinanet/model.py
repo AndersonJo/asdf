@@ -72,6 +72,7 @@ class RetinaNet(object):
 
     def __call__(self,
                  n_class: int = 20,
+                 checkpoint: str = None,
 
                  # Backbone
                  freeze_backbone: bool = False,
@@ -91,6 +92,40 @@ class RetinaNet(object):
                  debug=True
                  ) -> Tuple[Model, Model, Model]:
 
+        if checkpoint is not None:
+            print('Continue checkpoint : {}'.format(checkpoint))
+            model = self.load_model(checkpoint, p2=use_p2, convert=False)
+        else:
+            model = self.create_training_model(freeze_backbone=freeze_backbone,
+                                               weights=weights,
+                                               use_p2=use_p2,
+                                               clf_feature_size=clf_feature_size,
+                                               reg_feature_size=reg_feature_size,
+                                               prior_probability=prior_probability)
+
+        self._model = model
+        self._model_train = model
+
+        # Create Prediction Model
+        self._model_pred = self.create_prediction_model(model=model, pyramids=pyramids, use_nms=use_nms)
+
+        self._model_train.compile(
+            loss={'reg': self.smooth_l1_loss,
+                  'clf': self.focal_loss},
+            optimizer=keras.optimizers.adam(lr=1e-5, clipnorm=0.001))
+
+        return model, self._model_train, self._model_pred
+
+    def create_training_model(self,
+                              # Backbone
+                              freeze_backbone: bool = False,
+                              weights: str = None,
+                              use_p2: bool = False,
+
+                              # Sub Networks
+                              clf_feature_size: int = 256,
+                              reg_feature_size: int = 256,
+                              prior_probability=0.01, ):
         # Initialize Backbone Model
         backbone_model = self.backbone.create_backbone_model(self.inputs, freeze=freeze_backbone)
 
@@ -111,23 +146,10 @@ class RetinaNet(object):
         if weights is None:
             weights = self.backbone.download_imagenet()
         model.load_weights(weights, by_name=True, skip_mismatch=False)
-        self._model = model
-        self._model_train = model
-
-        # Create Prediction Model
-        self._model_pred = self.create_prediction_model(model=model, pyramids=pyramids,
-                                                        pyramid_features=pyramid_features, use_nms=use_nms)
-
-        self._model_train.compile(
-            loss={'reg': self.smooth_l1_loss,
-                  'clf': self.focal_loss},
-            optimizer=keras.optimizers.adam(lr=1e-5, clipnorm=0.001))
-
-        return model, self._model_train, self._model_pred
+        return model
 
     def create_prediction_model(self, model: Model,
                                 pyramids: List[str] = ('P3', 'P4', 'P5', 'P6', 'P7'),
-                                pyramid_features=None,
                                 use_nms=True,
                                 name='retinanet-prediction', ):
         # Get Pyramid Features

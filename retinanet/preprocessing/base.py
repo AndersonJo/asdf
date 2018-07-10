@@ -30,6 +30,9 @@ class BaseGenerator(Sequence, ABC):
         """
         return int(np.ceil(len(self._data) / float(self.batch_size)))
 
+    def get_single_data(self, index: int):
+        return self._data[index]
+
     def get_batch(self, index: int):
         batch = self._data[index * self.batch_size: (index + 1) * self.batch_size]
         return batch
@@ -109,7 +112,7 @@ class ImageGenerator(BaseGenerator):
         image_batch = self.load_image_batch(batch)
 
         # Filter invalid bounding boxes
-        image_batch, box_batch = self.filter_invalid_bounding_box_batch(image_batch, box_batch)
+        box_batch = self.filter_invalid_bounding_box_batch(image_batch, box_batch)
 
         # Perform image pre-processing
         image_batch, box_batch, scales = self.preprocess_batch(image_batch, box_batch)
@@ -196,21 +199,24 @@ class ImageGenerator(BaseGenerator):
     def process_targets(self, image_batch, box_batch):
         return generate_targets(image_batch, box_batch, batch_size=self.batch_size, n_classes=self.count_class())
 
-    @staticmethod
-    def filter_invalid_bounding_box_batch(image_batch: List[np.ndarray], box_batch: List[np.ndarray]) -> Tuple[
+    @classmethod
+    def filter_invalid_bounding_box_batch(cls, image_batch: List[np.ndarray], box_batch: List[np.ndarray]) -> Tuple[
         List[np.ndarray], List[np.ndarray]]:
         for i, (image, boxes) in enumerate(zip(image_batch, box_batch)):
-            invalid_indices = np.where(
-                (boxes[:, 2] <= boxes[:, 0]) |
-                (boxes[:, 3] <= boxes[:, 1]) |
-                (boxes[:, 0] < 0) |
-                (boxes[:, 1] < 0) |
-                (boxes[:, 2] > image.shape[1]) |
-                (boxes[:, 3] > image.shape[0])
-            )[0]
+            filtered_boxes = cls.filter_invalid_bounding_box(image, boxes)
+            box_batch[i] = filtered_boxes
 
-            if len(invalid_indices):
-                filtered_boxes = np.delete(boxes, invalid_indices, axis=0)
-                box_batch[i] = filtered_boxes
+        return box_batch
 
-        return image_batch, box_batch
+    @classmethod
+    def filter_invalid_bounding_box(cls, image, boxes):
+        invalid_indices = np.where(
+            (boxes[:, 2] <= boxes[:, 0]) |
+            (boxes[:, 3] <= boxes[:, 1]) |
+            (boxes[:, 0] < 0) |
+            (boxes[:, 1] < 0) |
+            (boxes[:, 2] > image.shape[1]) |
+            (boxes[:, 3] > image.shape[0])
+        )[0]
+        filtered_boxes = np.delete(boxes, invalid_indices, axis=0)
+        return filtered_boxes

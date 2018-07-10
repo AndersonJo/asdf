@@ -152,6 +152,7 @@ def train():
 
     # Create RetinaNet
     retina_kwargs = dict(
+        checkpoint=parser.checkpoint,
         freeze_backbone=parser.freeze_backbone,
         weights=parser.weights,
         clf_feature_size=parser.clf_feature,
@@ -159,7 +160,7 @@ def train():
         prior_probability=0.01,
         use_p2=parser.p2
     )
-    retinanet = RetinaNet(parser.backbone, n_class=20)
+    retinanet = RetinaNet(parser.backbone)
     model, training_model, pred_model = retinanet(**retina_kwargs)
 
     # Create callbacks
