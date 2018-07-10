@@ -12,8 +12,8 @@ def label_color(label):
 
         If no color is defined for a certain label, the color green is returned and a warning is printed.
     """
-    if label < len(colors):
-        return colors[label]
+    if label < len(COLORS):
+        return COLORS[label]
     else:
         warnings.warn('Label {} has no color, returning default.'.format(label))
         return (0, 255, 0)
@@ -28,7 +28,7 @@ shuffle(colors)
 pprint(colors)
 ```
 """
-colors = [
+COLORS = [
     [31, 0, 255],
     [0, 159, 255],
     [255, 95, 0],

@@ -106,13 +106,11 @@ class RetinaNet(object):
         self._model = model
         self._model_train = model
 
-        # Create Prediction Model
+        # Create inference model
         self._model_pred = self.create_prediction_model(model=model, pyramids=pyramids, use_nms=use_nms)
 
-        self._model_train.compile(
-            loss={'reg': self.smooth_l1_loss,
-                  'clf': self.focal_loss},
-            optimizer=keras.optimizers.adam(lr=1e-5, clipnorm=0.001))
+        # Compile training model
+        self.compile_model(self._model_train)
 
         return model, self._model_train, self._model_pred
 
@@ -151,7 +149,7 @@ class RetinaNet(object):
     def create_prediction_model(self, model: Model,
                                 pyramids: List[str] = ('P3', 'P4', 'P5', 'P6', 'P7'),
                                 use_nms=True,
-                                name='retinanet-prediction', ):
+                                name='retinanet-prediction'):
         # Get Pyramid Features
         pyramids = list(map(lambda p: p.lower(), pyramids))
         pyramid_features = [model.get_layer(p_name).output for p_name in pyramids]
@@ -171,6 +169,12 @@ class RetinaNet(object):
         pred_model = keras.models.Model(inputs=model.inputs, outputs=outputs, name=name)
 
         return pred_model
+
+    def compile_model(self, model) -> Model:
+        return model.compile(
+            loss={'reg': self.smooth_l1_loss,
+                  'clf': self.focal_loss},
+            optimizer=keras.optimizers.adam(lr=1e-5, clipnorm=0.001))
 
     def generate_anchors(self, pyramid_features: List[tf.Tensor]):
         anchor_info = self.anchor_info
@@ -316,14 +320,16 @@ class RetinaNet(object):
         :param convert: Convert training model to inference model
         :return: RetinaNet Model
         """
+        print('loading model', model_path)
         model = keras.models.load_model(model_path, custom_objects=self.backbone.custom_objects)
-
-        # Convert?
-        pyramids = ['P3', 'P4', 'P5', 'P6', 'P7']
-        if p2:
-            pyramids.insert(0, 'P2')
+        print('finish loading model')
 
         if convert:
+            # Convert?
+            pyramids = ['P3', 'P4', 'P5', 'P6', 'P7']
+            if p2:
+                pyramids.insert(0, 'P2')
+
             model = self.create_prediction_model(model, pyramids=pyramids)
             self._model_pred = model
 

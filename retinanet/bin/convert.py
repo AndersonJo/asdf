@@ -16,7 +16,6 @@ from retinanet.retinanet.model import RetinaNet
 def parse_args(args) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='Convert training model to inference model')
     parser.add_argument('source', help='The model to convert')
-    # parser.add_argument('dest', help='The path to save the converted model to')
     parser.add_argument('--p2', action='store_true',
                         help='Use P2 of feature pyramid network for detecting tiny objects')
     parser.add_argument('--tensorflow', action='store_true',
@@ -27,23 +26,25 @@ def parse_args(args) -> argparse.Namespace:
 def parse_source(source):
     backbone, data_mode, epoch = None, None, None
 
-    regex = re.compile('(?P<backbone>[\w\d]+)_(?P<data>\w+)_(?P<epoch>\d+)\.h5')
+    regex = re.compile('(?P<backbone>[a-zA-Z\d]+)_?(?P<p2>p2)_(?P<data>\w+)_(?P<epoch>\d+)\.h5')
     match = re.findall(regex, source)
 
     if match is not None and match:
-        backbone, data_mode, epoch = match[0]
+        backbone, p2, data_mode, epoch = match[0]
         epoch = int(epoch)
 
     return backbone, data_mode, epoch
 
 
-def make_destination_path(backbone, data_mode, epochs, tensorflow, p2):
+def make_destination_path(backbone, data_mode, epochs, tensorflow, use_p2):
     if not os.path.exists('inferences'):
         os.mkdir('inferences')
 
-    dest = 'inferences/{0}_{1}_{2}'.format(backbone, data_mode, epochs)
-    if p2:
-        dest += '_p2'
+    p2 = ''
+    if use_p2:
+        p2 = '_p2'
+
+    dest = 'inferences/{0}{1}_{2}_{3}'.format(backbone, p2, data_mode, epochs)
 
     if tensorflow:
         dest += '.ckpt'
