@@ -23,7 +23,7 @@ def parse_args(args):
     parser.add_argument('--epochs', type=int, default=100, help='number of epochs')
 
     # Backbone
-    parser.add_argument('--backbone', default='resnet101', type=str, help='Backbone model (resnet50)')
+    parser.add_argument('--backbone', default='resnet50', type=str, help='Backbone model (resnet50)')
     parser.add_argument('--freeze-backbone', action='store_true', help='Freeze backbone layers when training')
     parser.add_argument('--weights', default=None, type=str,
                         help='weights path for backbone modle. (default is pre-trained ImageNet')

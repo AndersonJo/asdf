@@ -75,10 +75,10 @@ class Evaluator(object):
         return image_detections
 
     @classmethod
-    def draw_detections(cls, image, boxes, labels, scores, color=(0, 255, 0), thickness=2, score_threshold=0.4):
+    def draw_detections(cls, image, boxes, labels, scores, color=None, thickness=2, score_threshold=0.5):
         selection = np.where(scores > score_threshold)[0]
         for i in selection:
-            color = color if color is not None else label_color(labels[i])
+            color = color if color is not None else label_color(int(labels[i]))
             # c = color if color is not None else label_color(labels[i])
             cls.draw_box(image, boxes[i, :], color=color, thickness=thickness)
 

@@ -35,12 +35,14 @@ class PascalVOCGenerator(ImageGenerator):
     # VOC2017 uses val.txt as test data
     TEST_FILES = ('val.txt',)
     TRAIN_FILES = ('trainval.txt',)
+    CHALLENGES = ('VOC2007', 'VOC2012')
 
     def __init__(self,
                  voc_root_path: str = '/data/VOCdevkit',
-                 voc_challenges: List[str] = ('VOC2007', 'VOC2012'),
+                 voc_challenges: List[str] = CHALLENGES,
                  voc_mode: str = 'train',
                  classes: Dict[str, int] = VOC_CLASSES,
+                 convert_classes: Dict[str, str] = None,
                  limit_size: int = None,
                  **kwargs):
         """
@@ -81,6 +83,7 @@ class PascalVOCGenerator(ImageGenerator):
 
         # Set classes and labels
         self.classes = classes
+        self.convert_classes = convert_classes
         self.labels = {v: k for k, v in self.classes.items()}
 
         self.init_data()
@@ -124,8 +127,11 @@ class PascalVOCGenerator(ImageGenerator):
     def load_image(self, image_info):
         challenge_path, filename = image_info
         image_path = os.path.join(challenge_path, 'JPEGImages', '{0}.jpg'.format(filename))
-        # if not os.path.exists(image_path):
-        #     raise FileNotFoundError('{0} image file not found'.format(image_path))
+        if not os.path.exists(image_path):
+            image_path = os.path.join(challenge_path, 'JPEGImages', '{0}.png'.format(filename))
+            if not os.path.exists(image_path):
+                raise FileNotFoundError('{0} image file not found'.format(image_path))
+
         return load_image(image_path)
 
     def load_annotation(self, annotation_info):
