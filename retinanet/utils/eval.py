@@ -42,7 +42,7 @@ class Evaluator(object):
             # Denormalize
             image = denormalize_image(image)
 
-            # self.draw_boxes(raw_image, annotation, color=(0, 0, 255), thickness=1)
+            self.draw_boxes(raw_image, annotation, color=(0, 0, 255), thickness=1)
             self.draw_detections(image, detections, detections[:, 4], detections[:, 5],
                                  thickness=1)
 

@@ -24,7 +24,7 @@ def parse_args(args) -> argparse.Namespace:
 
 
 def parse_source(source):
-    backbone, data_mode, epoch = None, None, None
+    backbone, p2, data_mode, epoch = None, None, None, None
 
     regex = re.compile('(?P<backbone>[a-zA-Z\d]+)_?(?P<p2>p2)?_(?P<data>\w+)_(?P<epoch>\d+)\.h5')
     match = re.findall(regex, source)
@@ -33,7 +33,7 @@ def parse_source(source):
         backbone, p2, data_mode, epoch = match[0]
         epoch = int(epoch)
 
-    return backbone, data_mode, epoch
+    return backbone, p2, data_mode, epoch
 
 
 def make_destination_path(backbone, data_mode, epochs, tensorflow, use_p2):
@@ -71,10 +71,10 @@ def save_as_tensorflow(model: Model, export_path: str):
 
 def main():
     parser = parse_args(sys.argv[1:])
-    backbone, data_mode, epochs = parse_source(parser.source)
+    backbone, use_p2, data_mode, epochs = parse_source(parser.source)
 
     # Set Destination
-    dest_path = make_destination_path(backbone, data_mode, epochs, parser.tensorflow, parser.p2)
+    dest_path = make_destination_path(backbone, data_mode, epochs, parser.tensorflow, use_p2)
 
     # Checks
     if backbone is None or not backbone:
@@ -82,11 +82,11 @@ def main():
 
     # Set Pyramids
     pyramids = ['P3', 'P4', 'P5', 'P6', 'P7']
-    if parser.p2:
+    if use_p2:
         pyramids.insert(0, 'P2')
 
     # Convert training model to inference model
-    retinanet = RetinaNet(backbone)
+    retinanet = RetinaNet(backbone, use_p2=use_p2)
     training_model = retinanet.load_model(parser.source)
     prediction_model = retinanet.create_prediction_model(training_model,
                                                          pyramids=pyramids)
