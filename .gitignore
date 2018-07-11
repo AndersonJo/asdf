@@ -11,6 +11,7 @@ venv
 .cache
 Untitled.ipynb
 test*.png
+temp2-resnet50-sinsinsa
 
 # Data
 checkpoints
