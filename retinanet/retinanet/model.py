@@ -9,38 +9,40 @@ from keras.layers import Input, Concatenate
 
 from retinanet.anchor.information import AnchorInfo
 from retinanet.backbone import load_backbone
-from retinanet.preprocessing.pascal import PascalVOCGenerator
 from retinanet.retinanet.initializer import PriorProbability
 from retinanet.retinanet.layers import RegressBoxes, ClipBoxes, Anchor
 from retinanet.retinanet.losses import FocalLoss, SmoothL1Loss
 from retinanet.retinanet.pyramid import graph_pyramid_features, apply_pyramid_features
 from retinanet.utils.filter_detections import FilterDetections
-from retinanet.utils.image import denormalize_image
 
 
 class RetinaNet(object):
     def __init__(self,
                  backbone: str,
-                 anchor_info: AnchorInfo = AnchorInfo(),
+                 use_p2: bool = False,
+                 anchor_info: AnchorInfo = None,
                  fpn_feature_size: int = 256):
         """
-        # Basic Parameters
-        :param n_class: the number of classes
-        :param n_anchor: the number of anchors
-        :param anchor_info: AnchorInfo
+        # BACKBONE PARAMETERS
+        :PARAM BACKBONE: THE NAME OF THE BACKBONE MODEL
 
-        # Backbone Parameters
-        :param backbone: The name of the backbone Model
+        # BASIC PARAMETERS
+        :PARAM ANCHOR_INFO: ANCHORINFO
 
-        :param freeze: freeze the weights of the backbone model
-        :param weights: weights file path. if None, it uses pre-trained ImageNet weights.
-
-        # Pyramid Parameters
-        :param fpn_feature_size: the feature size of the pyramid network
+        # PYRAMID PARAMETERS
+        :PARAM FPN_FEATURE_SIZE: THE FEATURE SIZE OF THE PYRAMID NETWORK
         """
         # Initialize basic parameters
+        if anchor_info is None:
+            if not use_p2:
+                anchor_info = AnchorInfo(sizes=[32, 64, 128, 256, 512],
+                                         strides=[8, 16, 32, 64, 128])
+            else:
+                anchor_info = AnchorInfo()
+
         self.n_anchor = anchor_info.count_anchors()
         self.anchor_info = anchor_info
+        self.use_p2 = use_p2
 
         # Initialize Feature Pyramid Network
         self.fpn_feature_size = fpn_feature_size
@@ -78,7 +80,6 @@ class RetinaNet(object):
                  freeze_backbone: bool = False,
                  weights: str = None,
                  pyramids: List[str] = ('P3', 'P4', 'P5', 'P6', 'P7'),
-                 use_p2: bool = False,
 
                  # Sub Networks
                  clf_feature_size: int = 256,
@@ -94,11 +95,12 @@ class RetinaNet(object):
 
         if checkpoint is not None:
             print('Continue checkpoint : {}'.format(checkpoint))
-            model = self.load_model(checkpoint, p2=use_p2, convert=False)
+            model = self.load_model(checkpoint, p2=self.use_p2, convert=False)
         else:
-            model = self.create_training_model(freeze_backbone=freeze_backbone,
+            model = self.create_training_model(n_class=n_class,
+                                               freeze_backbone=freeze_backbone,
                                                weights=weights,
-                                               use_p2=use_p2,
+                                               use_p2=self.use_p2,
                                                clf_feature_size=clf_feature_size,
                                                reg_feature_size=reg_feature_size,
                                                prior_probability=prior_probability)
@@ -115,6 +117,7 @@ class RetinaNet(object):
         return model, self._model_train, self._model_pred
 
     def create_training_model(self,
+                              n_class: int,
                               # Backbone
                               freeze_backbone: bool = False,
                               weights: str = None,
@@ -128,7 +131,8 @@ class RetinaNet(object):
         backbone_model = self.backbone.create_backbone_model(self.inputs, freeze=freeze_backbone)
 
         # Create Sub Networks
-        clf_subnet = self.create_classification_subnet(clf_feature_size=clf_feature_size,
+        clf_subnet = self.create_classification_subnet(n_class=n_class,
+                                                       clf_feature_size=clf_feature_size,
                                                        prior_prob=prior_probability)
 
         reg_subnet = self.create_regression_subnet(reg_feature_size=reg_feature_size)

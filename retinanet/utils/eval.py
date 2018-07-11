@@ -4,6 +4,7 @@ from keras import Model
 
 from retinanet.preprocessing.pascal import PascalVOCGenerator
 from retinanet.utils.colors import label_color
+from retinanet.utils.image import denormalize_image
 
 
 class Evaluator(object):
@@ -38,10 +39,14 @@ class Evaluator(object):
             # Get Detections
             detections = self.predict_detections(image, score_threshold, max_detections)
 
-            self.draw_boxes(raw_image, annotation, color=(0, 0, 255), thickness=1)
-            self.draw_detections(raw_image, detections, detections[:, 4], detections[:, 5], thickness=1)
+            # Denormalize
+            image = denormalize_image(image)
 
-            cv2.imwrite('{}/haha{}.png'.format(self.save_dir, i), raw_image)
+            # self.draw_boxes(raw_image, annotation, color=(0, 0, 255), thickness=1)
+            self.draw_detections(image, detections, detections[:, 4], detections[:, 5],
+                                 thickness=1)
+
+            cv2.imwrite('{}/haha{}.png'.format(self.save_dir, i), image)
 
     def predict_detections(self, image, score_threshold: float = 0.05, max_detections: int = 300, ) -> np.ndarray:
         """
@@ -78,9 +83,9 @@ class Evaluator(object):
     def draw_detections(cls, image, boxes, labels, scores, color=None, thickness=2, score_threshold=0.5):
         selection = np.where(scores > score_threshold)[0]
         for i in selection:
-            color = color if color is not None else label_color(int(labels[i]))
-            # c = color if color is not None else label_color(labels[i])
-            cls.draw_box(image, boxes[i, :], color=color, thickness=thickness)
+            c = color if color is not None else label_color(int(labels[i]))
+
+            cls.draw_box(image, boxes[i, :], color=c, thickness=thickness)
 
     @classmethod
     def draw_boxes(cls, image, boxes, color=(0, 255, 0), thickness=2):

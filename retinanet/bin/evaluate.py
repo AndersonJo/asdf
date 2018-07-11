@@ -38,6 +38,8 @@ def parse_model_path(model_path):
 
 def main():
     parser = parse_args(sys.argv[1:])
+    print(parser.inference_model)
+
     backbone, use_p2, data_mode, epochs = parse_model_path(parser.inference_model)
 
     if backbone is None or data_mode is None or epochs is None:

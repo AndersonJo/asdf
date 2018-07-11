@@ -1,7 +1,7 @@
 import argparse
 
 from retinanet.preprocessing.pascal import PascalVOCGenerator, VOC_CLASSES
-from retinanet.preprocessing.sinsinsa import SinsinsaGenerator
+from retinanet.preprocessing.sinsinsa import SinsinsaGenerator, SINSINSA_CLASSES
 from retinanet.preprocessing.transform import RandomTransformGenerator
 
 
@@ -37,10 +37,10 @@ def create_data_generator(data_mode: str, data_path: str, batch: int = 1, classe
     elif mode == 'sinsinsa':
         train_generator = SinsinsaGenerator(data_path, voc_mode='train', batch=batch,
                                             voc_challenges=['Sinsinsa2018'],
-                                            random_generator=random_generator, classes=classes)
+                                            random_generator=random_generator, classes=SINSINSA_CLASSES)
         test_generator = SinsinsaGenerator(data_path, voc_mode='test', batch=batch,
                                            voc_challenges=['Sinsinsa2018'],
-                                           random_generator=random_generator, classes=classes)
+                                           random_generator=random_generator, classes=SINSINSA_CLASSES)
     else:
         raise ValueError('Invalid data generator {0} received'.format(mode))
     return train_generator, test_generator

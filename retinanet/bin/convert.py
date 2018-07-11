@@ -26,7 +26,7 @@ def parse_args(args) -> argparse.Namespace:
 def parse_source(source):
     backbone, data_mode, epoch = None, None, None
 
-    regex = re.compile('(?P<backbone>[a-zA-Z\d]+)_?(?P<p2>p2)_(?P<data>\w+)_(?P<epoch>\d+)\.h5')
+    regex = re.compile('(?P<backbone>[a-zA-Z\d]+)_?(?P<p2>p2)?_(?P<data>\w+)_(?P<epoch>\d+)\.h5')
     match = re.findall(regex, source)
 
     if match is not None and match:

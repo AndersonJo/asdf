@@ -5,12 +5,11 @@ import sys
 # Enable relative import
 sys.path.insert(0, os.path.abspath(os.path.join(__file__, '..', '..')))
 
-from typing import List
-
 import keras.backend as K
 import tensorflow as tf
-from keras.callbacks import TensorBoard, ModelCheckpoint, Callback, ReduceLROnPlateau
 
+from typing import List
+from keras.callbacks import TensorBoard, ModelCheckpoint, Callback, ReduceLROnPlateau
 from retinanet.preprocessing.generator import create_data_generator
 from retinanet.retinanet.model import RetinaNet
 
@@ -20,7 +19,7 @@ def parse_args(args):
     parser.add_argument('data_mode')
     parser.add_argument('data_path', default='/data/VOCdevkit/')
     parser.add_argument('--steps', type=int, default=10000, help='number of steps per epoch')
-    parser.add_argument('--epochs', type=int, default=100, help='number of epochs')
+    parser.add_argument('--epochs', type=int, default=500, help='number of epochs')
 
     # Backbone
     parser.add_argument('--backbone', default='resnet50', type=str, help='Backbone model (resnet50)')
@@ -124,7 +123,7 @@ def create_callbacks(backbone: str,
     # Decaying learning rate
     callbacks.append(ReduceLROnPlateau(
         monitor='loss',
-        factor=0.1,
+        factor=0.5,
         patience=2,
         verbose=1,
         mode='auto',
@@ -152,15 +151,16 @@ def train():
 
     # Create RetinaNet
     retina_kwargs = dict(
+        n_class=2,
         checkpoint=parser.checkpoint,
         freeze_backbone=parser.freeze_backbone,
         weights=parser.weights,
         clf_feature_size=parser.clf_feature,
         reg_feature_size=parser.reg_feature,
-        prior_probability=0.01,
-        use_p2=parser.p2
+        prior_probability=0.01
     )
-    retinanet = RetinaNet(parser.backbone)
+
+    retinanet = RetinaNet(parser.backbone, use_p2=parser.p2)
     model, training_model, pred_model = retinanet(**retina_kwargs)
 
     # Create callbacks
