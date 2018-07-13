@@ -147,6 +147,7 @@ def train():
     # Create Generator
     train_generator, validation_generator = create_data_generator(data_mode=parser.data_mode,
                                                                   data_path=parser.data_path,
+                                                                  use_p2=parser.p2,
                                                                   random_transform=parser.random_transform)
 
     # Create RetinaNet

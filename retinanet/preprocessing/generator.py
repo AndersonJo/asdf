@@ -6,6 +6,7 @@ from retinanet.preprocessing.transform import RandomTransformGenerator
 
 
 def create_data_generator(data_mode: str, data_path: str, batch: int = 1, classes: dict = VOC_CLASSES,
+                          use_p2: bool = False,
                           random_transform: bool = False):
     mode = data_mode.lower().strip()
     data_path = data_path.strip()

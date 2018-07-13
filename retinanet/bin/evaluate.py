@@ -1,11 +1,11 @@
 import argparse
 import os
-import re
 import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(__file__, '..', '..', '..')))
 
 from retinanet.utils.eval import Evaluator
+from retinanet.utils.path import parse_model_path
 from retinanet.retinanet.model import RetinaNet
 from retinanet.preprocessing.generator import create_data_generator
 from retinanet.preprocessing.pascal import VOC_CLASSES
@@ -19,21 +19,6 @@ def parse_args(args) -> argparse.Namespace:
     parser.add_argument('--convert', action='store_true',
                         help='Convert training model to inference model')
     return parser.parse_args(args)
-
-
-def parse_model_path(model_path):
-    backbone, data_mode, epochs, p2 = None, None, None, None
-
-    regex = re.compile('(?P<backbone>[a-zA-Z\d]+)_?(?P<p2>p2)?_(?P<data_mode>\w+)_(?P<epochs>\d+).h5')
-    search = re.findall(regex, model_path)
-    if search is not None and search:
-        backbone, p2, data_mode, epochs, = search[0]
-
-    use_p2 = False
-    if p2:
-        use_p2 = True
-
-    return backbone, use_p2, data_mode, epochs
 
 
 def main():

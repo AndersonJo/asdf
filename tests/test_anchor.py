@@ -45,11 +45,3 @@ def test_compute_overlap():
 
     expected_max_overlaps = [1.0, 1.0, 0.140625, 0.0]
     np.testing.assert_equal(expected_max_overlaps, max_overlaps)
-
-# def test_generate_targets():
-#     voc = PascalVOCGenerator()
-#     image_batch, box_batch = voc.get_batch(1)
-#
-#     image_shape = image_batch[0].shape[1:3]
-#     n_classes = len(VOC_CLASSES)
-#     labels, boxes, anchors = anchor_targets_bbox(image_shape, box_batch[0], num_classes=n_classes)

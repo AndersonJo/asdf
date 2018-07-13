@@ -74,9 +74,11 @@ class ImageGenerator(BaseGenerator):
                  channel_axis: int = 2,
 
                  image_min_size: int = 800,
-                 image_max_size: int = 1600):
+                 image_max_size: int = 4096,
+                 use_p2: bool = False):
         super(ImageGenerator, self).__init__(batch=batch, shuffle=shuffle)
         self.random_generator = random_generator
+        self.use_p2 = use_p2
 
         # Transformation parameters
         self.relative_translation = relative_translation
@@ -103,7 +105,7 @@ class ImageGenerator(BaseGenerator):
         # Combine a list of images into a single nd-array of images
         inputs = self.process_inputs(image_batch)
 
-        targets = self.process_targets(image_batch, box_batch)
+        targets = self.process_targets(image_batch, box_batch, use_p2=self.use_p2)
 
         return inputs, targets
 
@@ -196,8 +198,9 @@ class ImageGenerator(BaseGenerator):
 
         return image_batch
 
-    def process_targets(self, image_batch, box_batch):
-        return generate_targets(image_batch, box_batch, batch_size=self.batch_size, n_classes=self.count_class())
+    def process_targets(self, image_batch, box_batch, use_p2: bool = False):
+        return generate_targets(image_batch, box_batch, batch_size=self.batch_size, n_classes=self.count_class(),
+                                use_p2=use_p2)
 
     @classmethod
     def filter_invalid_bounding_box_batch(cls, image_batch: List[np.ndarray], box_batch: List[np.ndarray]) -> Tuple[

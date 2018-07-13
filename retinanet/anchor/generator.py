@@ -2,7 +2,8 @@ import keras.backend as K
 import numpy as np
 
 
-def generate_targets(image_batch: np.ndarray, box_batch: np.ndarray, batch_size: int, n_classes: int):
+def generate_targets(image_batch: np.ndarray, box_batch: np.ndarray, batch_size: int, n_classes: int,
+                     use_p2: bool = False):
     # get the max image shape
     max_shape = tuple(max(image.shape[x] for image in image_batch) for x in range(3))
 
@@ -10,8 +11,9 @@ def generate_targets(image_batch: np.ndarray, box_batch: np.ndarray, batch_size:
     labels_group = [None] * batch_size
     regression_group = [None] * batch_size
     for index, (image, boxes) in enumerate(zip(image_batch, box_batch)):
-        labels_group[index], boxes, anchors = anchor_targets_bbox(max_shape, boxes, n_classes,  # self.count_class(),
-                                                                  mask_shape=image.shape)
+        labels_group[index], boxes, anchors = anchor_targets_bbox(max_shape, boxes, n_classes,
+                                                                  mask_shape=image.shape,
+                                                                  use_p2=use_p2)
 
         regression_group[index] = bbox_transform(anchors, boxes)
 
@@ -37,6 +39,7 @@ def anchor_targets_bbox(
         mask_shape=None,
         negative_overlap=0.4,
         positive_overlap=0.5,
+        use_p2: bool = False,
         **kwargs):
     """
 
@@ -49,7 +52,7 @@ def anchor_targets_bbox(
     :param kwargs:
     :return:
     """
-    anchors = anchors_for_shape(image_shape, **kwargs)
+    anchors = anchors_for_shape(image_shape, use_p2=use_p2, **kwargs)
 
     # Each anchor should have at least one class vector.
     # label: 1 is positive, 0 is negative, -1 is dont care
@@ -143,6 +146,10 @@ def anchors_for_shape(
     :param image_shape: (height, width)
     :return: All anchors for all pyramid levels. all_anchors = (None, 4)
     """
+
+    import ipdb
+    ipdb.set_trace()
+
     if pyramid_levels is None:
         pyramid_levels = [3, 4, 5, 6, 7]
     if strides is None:
