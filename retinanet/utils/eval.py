@@ -9,9 +9,11 @@ from retinanet.utils.image import denormalize_image
 
 class Evaluator(object):
 
-    def __init__(self, inference_model: Model, generator: PascalVOCGenerator, save_dir: str = 'temp'):
+    def __init__(self, inference_model: Model, generator: PascalVOCGenerator, label_to_name=None,
+                 save_dir: str = 'temp'):
         self.model = inference_model
         self.generator = generator
+        self.label_to_name = label_to_name
         self.save_dir = save_dir
 
     def __call__(self, iou_threshold=0.5, score_threshold=0.05, max_detections=100, limit: int = None):
@@ -34,7 +36,7 @@ class Evaluator(object):
             image = self.generator.preprocess_image(raw_image.copy())  # Normalize the image
 
             # Resize Image
-            image, scale_ratio = self.generator.resize_image(image)
+            # image, scale_ratio = self.generator.resize_image(image)
 
             # Get Detections
             detections = self.predict_detections(image, score_threshold, max_detections)
@@ -42,9 +44,9 @@ class Evaluator(object):
             # Denormalize
             image = denormalize_image(image)
 
-            self.draw_boxes(image, annotation, color=(0, 0, 255), thickness=1)
+            # self.draw_boxes(image, annotation, color=(0, 0, 255), thickness=1)
             self.draw_detections(image, detections, detections[:, 4], detections[:, 5],
-                                 thickness=1)
+                                 thickness=1, label_to_name=self.label_to_name)
 
             cv2.imwrite('{}/haha{}.png'.format(self.save_dir, i), image)
 
@@ -80,12 +82,16 @@ class Evaluator(object):
         return image_detections
 
     @classmethod
-    def draw_detections(cls, image, boxes, labels, scores, color=None, thickness=2, score_threshold=0.5):
+    def draw_detections(cls, image, boxes, labels, scores, color=None, thickness=2, score_threshold=0.5,
+                        label_to_name=None):
         selection = np.where(scores > score_threshold)[0]
         for i in selection:
             c = color if color is not None else label_color(int(labels[i]))
-
             cls.draw_box(image, boxes[i, :], color=c, thickness=thickness)
+
+            if label_to_name is not None:
+                caption = (label_to_name(labels[i]) if label_to_name else labels[i]) + ': {0:.2f}'.format(scores[i])
+                cls.draw_caption(image, boxes[i, :], caption)
 
     @classmethod
     def draw_boxes(cls, image, boxes, color=(0, 255, 0), thickness=2):
@@ -102,3 +108,11 @@ class Evaluator(object):
         """
         b = np.array(box).astype(int)
         cv2.rectangle(image, (b[0], b[1]), (b[2], b[3]), color, thickness, cv2.LINE_AA)
+
+    @classmethod
+    def draw_caption(cls, image, box, caption):
+        b = np.array(box).astype(int)
+        width = b[2] - b[0]
+
+        cv2.putText(image, caption, (b[2] - width, b[3] + 20), cv2.FONT_HERSHEY_PLAIN, 2, (0, 0, 0), 3)
+        cv2.putText(image, caption, (b[2] - width, b[3] + 20), cv2.FONT_HERSHEY_PLAIN, 2, (255, 255, 255), 2)

@@ -49,7 +49,7 @@ def main():
     # print(inference_model.summary(line_length=120))
 
     # Evaluate
-    evaluator = Evaluator(inference_model, test_generator)
+    evaluator = Evaluator(inference_model, test_generator, label_to_name=test_generator.label_to_name)
     evaluator()
 
 
