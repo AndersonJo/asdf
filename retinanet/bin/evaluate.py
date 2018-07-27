@@ -23,7 +23,6 @@ def parse_args(args) -> argparse.Namespace:
 
 def main():
     parser = parse_args(sys.argv[1:])
-    print(parser.inference_model)
 
     backbone, use_p2, data_mode, epochs = parse_model_path(parser.inference_model)
 
@@ -46,7 +45,7 @@ def main():
                                            p2=use_p2,
                                            convert=parser.convert)
 
-    # print(inference_model.summary(line_length=120))
+    print(inference_model.summary(line_length=120))
 
     # Evaluate
     evaluator = Evaluator(inference_model, test_generator, label_to_name=test_generator.label_to_name)

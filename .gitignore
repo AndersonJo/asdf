@@ -18,3 +18,7 @@ checkpoints
 inferences
 temp
 tmp
+*.mp4
+*.mov
+*.avi
+*.mp3

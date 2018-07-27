@@ -90,8 +90,12 @@ class Evaluator(object):
             cls.draw_box(image, boxes[i, :], color=c, thickness=thickness)
 
             if label_to_name is not None:
-                caption = (label_to_name(labels[i]) if label_to_name else labels[i]) + ': {0:.2f}'.format(scores[i])
-                cls.draw_caption(image, boxes[i, :], caption)
+                # caption = (label_to_name(labels[i]) if label_to_name else labels[i]) + ': {0:.2f}'.format(scores[i])
+                caption = (label_to_name(labels[i]) if label_to_name else labels[i]) # + ': {0:.2f}'.format(scores[i])
+                cls.draw_caption(image, boxes[i, :], caption, font_size=5, down=60)
+
+                caption = '{0:.2f}'.format(scores[i])
+                cls.draw_caption(image, boxes[i, :], caption, font_size=3, down=110)
 
     @classmethod
     def draw_boxes(cls, image, boxes, color=(0, 255, 0), thickness=2):
@@ -110,9 +114,9 @@ class Evaluator(object):
         cv2.rectangle(image, (b[0], b[1]), (b[2], b[3]), color, thickness, cv2.LINE_AA)
 
     @classmethod
-    def draw_caption(cls, image, box, caption):
+    def draw_caption(cls, image, box, caption, font_size=2, down=0):
         b = np.array(box).astype(int)
         width = b[2] - b[0]
 
-        cv2.putText(image, caption, (b[2] - width, b[3] + 20), cv2.FONT_HERSHEY_PLAIN, 2, (0, 0, 0), 3)
-        cv2.putText(image, caption, (b[2] - width, b[3] + 20), cv2.FONT_HERSHEY_PLAIN, 2, (255, 255, 255), 2)
+        cv2.putText(image, caption, (b[2] - width, b[3] + down), cv2.FONT_HERSHEY_PLAIN, font_size, (0, 0, 0), 5)
+        cv2.putText(image, caption, (b[2] - width, b[3] + down), cv2.FONT_HERSHEY_PLAIN, font_size, (255, 255, 255), 4)
